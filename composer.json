@@ -1,0 +1,64 @@
+{
+    "name": "jovian/venusian-qt",
+    "description": "Qt 6 toolkit driver for the Venusian Surface bridge: connects PHP to QApplication through ext-qt.",
+    "type": "library",
+    "keywords": [
+        "framework",
+        "venusian",
+        "surface",
+        "bridge",
+        "qt",
+        "qt6",
+        "linux"
+    ],
+    "license": "MIT",
+    "homepage": "https://venusian.projectsaturnstudios.com/ecosystem/jovian/venusian-qt/0.10.x",
+    "support": {
+        "issues": "https://github.com/jovian-packages/venusian-qt/issues",
+        "source": "https://github.com/jovian-packages/venusian-qt"
+    },
+    "authors": [
+        {
+            "name": "Angel Gonzalez",
+            "email": "angel@projectsaturnstudios.com"
+        }
+    ],
+    "require": {
+        "php": "^8.4|^8.5|^8.6",
+        "ext-qt": "^0.10",
+        "venusian-surface/bridge": "^0.10.0",
+        "venusian-surface/contracts": "^0.10.0",
+        "venusian-voyager/nuts-and-bolts": "^0.10.1"
+    },
+    "require-dev": {
+        "pestphp/pest": "^4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Jovian\\Toolkits\\Qt\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Jovian\\Toolkits\\Qt\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.10.x-dev"
+        },
+        "venusian": {
+            "providers": [
+                "Jovian\\Toolkits\\Qt\\Providers\\VenusianQtServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
