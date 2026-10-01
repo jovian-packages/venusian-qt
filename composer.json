@@ -1,6 +1,6 @@
 {
     "name": "jovian/venusian-qt",
-    "description": "Qt 6 toolkit driver for the Venusian Surface bridge: connects PHP to QApplication through ext-qt.",
+    "description": "Qt 6 toolkit driver for the Venusian Surface bridge: connects PHP to QApplication, opens its windows and builds their menu bars through ext-qt.",
     "type": "library",
     "keywords": [
         "framework",
@@ -28,10 +28,13 @@
         "ext-qt": "^0.10",
         "venusian-surface/bridge": "^0.10.0",
         "venusian-surface/contracts": "^0.10.0",
+        "venusian-surface/windows": "^0.10.0",
         "venusian-voyager/nuts-and-bolts": "^0.10.1"
     },
     "require-dev": {
-        "pestphp/pest": "^4"
+        "pestphp/pest": "^4",
+        "venusian-voyager/config": "^0.10.1",
+        "venusian-voyager/vessel": "^0.10.1"
     },
     "autoload": {
         "psr-4": {
