@@ -22,7 +22,8 @@ it('opens a titled window under its name', function (): void {
         ->and($window->isOpen())->toBeTrue()
         ->and($window->native())->toBeInstanceOf(QMainWindow::class)
         ->and([$window->native()->width(), $window->native()->height()])->toBe([480, 320])
-        ->and($window->native()->centralWidget())->toBe($window->content())
+        ->and($window->native()->centralWidget())->toBe($window->centralWidget())
+        ->and($window->content())->toBeNull()
         ->and($window->native()->testAttribute(Qt\WidgetAttribute::DELETE_ON_CLOSE))->toBeTrue()
         ->and(driver()->get('main'))->toBe($window)
         ->and(driver()->all())->toBe(['main' => $window]);

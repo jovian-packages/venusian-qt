@@ -5,7 +5,7 @@ description: QMainWindow per name, event-filter mail, QMenuBar with roles, paren
 resource: src/Windows/
 tags: [qt, windows, menus]
 status: draft
-generated: { by: claude-opus/5.5, at: 2026-10-01T20:06:29Z }
+generated: { by: claude-opus/5.5, at: 2026-10-02T22:21:15Z }
 sources:
   - id: window
     resource: src/Windows/QtWindow.php
@@ -20,9 +20,11 @@ sources:
 
 # Window
 
-`QtWindow implements ToolkitWindow`. `QMainWindow`, title = name, `resize`, `DELETE_ON_CLOSE`, central widget = `content()` (where views go).[^window]
+`QtWindow implements ToolkitWindow`, `use HostsPrimitives`. `QMainWindow`, title = name, `resize`, `DELETE_ON_CLOSE`, central widget = `centralWidget()` with a zero-margin `QVBoxLayout`: the one content container ([primitives](/architecture/primitives.md)) is added with stretch 1 and fills it; `content()` is that container. `size()` = central widget size.[^window]
 
-* `QEventFilter` for `CLOSE` and `WINDOW_ACTIVATE`, returns `false` (events pass on). `CLOSE` → close path (post `WindowClosed`, driver forgets); QMainWindow accepts the close, Qt deletes the window on the next pump. `WINDOW_ACTIVATE` → `WindowFocused`.
+* `QEventFilter` for `CLOSE` and `WINDOW_ACTIVATE`, returns `false` (events pass on). `CLOSE` → close path; QMainWindow accepts the close, Qt deletes the window on the next pump. `WINDOW_ACTIVATE` → `WindowFocused`.
+* Second filter, `RESIZE` on the central widget → `postLatest("window.resized.<name>", WindowResized(central size))`: the central widget's own Resize carries the content size after the main window's layout ran; a burst within one pump = one mail.
+* Close path: `removeContent()` (whole tree, natives unparented + `deleteLater()`, watched views drop their pending mail), `forgetLatest("window.resized.<name>")`, post `WindowClosed`, driver forgets.
 * `destroyed` → same close path, for deletion any other way. Path runs once.
 * `close()` → `QWidget::close()`: close event sent for shown and never-shown windows alike.
 * `present()` → `show()`, `raise()`, `activateWindow()`.

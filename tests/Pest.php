@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
 use Jovian\Toolkits\Qt\Bridge\QtSession;
 use Surface\Bridge\ToolkitManager;
+use Surface\Bridge\ToolkitPump;
 use Surface\Windows\ToolkitWindowManager;
 use Voyager\Config\Repository;
 use Voyager\Vessel\ControlPanel;
@@ -73,11 +74,20 @@ function takeMail(QtSession $session): array
     })->call($session);
 }
 
-/** Pump Qt for $seconds. */
+/** Keys of the latest mail the session holds until the next flush. */
+function pendingLatest(QtSession $session): array
+{
+    return (function (): array {
+        return array_keys($this->latest);
+    })->call($session);
+}
+
+/** Pump Qt for $seconds through the loop's own sleeper, so latest mail is flushed after each pump as the loop does. */
 function pumpFor(float $seconds): void
 {
+    $pump = new ToolkitPump(session());
     $until = microtime(true) + $seconds;
     while (microtime(true) < $until) {
-        session()->pump(10_000_000);
+        $pump->sleep(10_000_000);
     }
 }

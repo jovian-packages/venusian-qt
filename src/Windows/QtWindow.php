@@ -4,21 +4,30 @@ namespace Jovian\Toolkits\Qt\Windows;
 
 use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
 use Jovian\Toolkits\Qt\Bridge\QtSession;
+use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
+use Jovian\Toolkits\Qt\Primitives\QtPrimitiveFactory;
 use QEvent\Type as EventType;
 use QEventFilter;
 use QMainWindow;
 use QMenuBar;
 use QObject;
+use QVBoxLayout;
 use Qt\WidgetAttribute;
 use QWidget;
 use Surface\Contracts\Windows\Mail\WindowClosed;
 use Surface\Contracts\Windows\Mail\WindowFocused;
+use Surface\Contracts\Windows\Mail\WindowResized;
+use Surface\Contracts\Windows\Primitives\TKPrimitiveGroup;
 use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\Contracts\Windows\WindowException;
 use Surface\Windows\Menus\MenuProfile;
+use Surface\Windows\Primitives\HostsPrimitives;
+use WeakReference;
 
 class QtWindow implements ToolkitWindow
 {
+    use HostsPrimitives;
+
     /**
      * The native window while open; null once closed. Qt deletes it after close.
      * @var QMainWindow|null
@@ -26,10 +35,24 @@ class QtWindow implements ToolkitWindow
     protected ?QMainWindow $window;
 
     /**
-     * Where views go: the central widget, below the bar.
+     * Where the content container goes: the central widget, below the bar.
      * @var QWidget
      */
-    protected QWidget $content;
+    protected QWidget $central;
+
+    /**
+     * Holds the content container's widget at the central widget's full size.
+     * @var QVBoxLayout
+     */
+    protected QVBoxLayout $central_layout;
+
+    /**
+     * Sees the central widget's Resize events: the content area's size.
+     * @var QEventFilter
+     */
+    protected QEventFilter $resize_filter;
+
+    protected ?QtPrimitiveFactory $factory = null;
 
     /**
      * Sees the window's close and activation events.
@@ -53,16 +76,27 @@ class QtWindow implements ToolkitWindow
         // Qt deletes the window after its close event is accepted.
         $this->window->setAttribute(WidgetAttribute::DELETE_ON_CLOSE);
 
-        $this->content = new QWidget();
-        $this->window->setCentralWidget($this->content);
+        $this->central = new QWidget();
+        $this->central_layout = new QVBoxLayout($this->central);
+        $this->central_layout->setContentsMargins(0, 0, 0, 0);
+        $this->central_layout->setSpacing(0);
+        $this->window->setCentralWidget($this->central);
+
+        // The filters hold this window weakly: a strong capture would be a cycle through the
+        // C++ filter that PHP's collector cannot see, keeping every closed window alive.
+        $self = WeakReference::create($this);
+
+        // A burst of resizes within one pump is one WindowResized, with the last size.
+        $this->resize_filter = new QEventFilter(static function (QObject $watched, EventType|int $type) use ($self): bool {
+            $self->get()?->resized();
+
+            return false;
+        }, [EventType::RESIZE]);
+        $this->central->installEventFilter($this->resize_filter);
 
         // false passes every event on: QMainWindow accepts the close, so the mail goes first.
-        $this->filter = new QEventFilter(function (QObject $watched, EventType|int $type): bool {
-            match ($type) {
-                EventType::CLOSE => $this->closed(),
-                EventType::WINDOW_ACTIVATE => $this->session->post(new WindowFocused($this->name)),
-                default => null,
-            };
+        $this->filter = new QEventFilter(static function (QObject $watched, EventType|int $type) use ($self): bool {
+            $self->get()?->filtered($type);
 
             return false;
         }, [EventType::CLOSE, EventType::WINDOW_ACTIVATE]);
@@ -165,12 +199,57 @@ class QtWindow implements ToolkitWindow
     }
 
     /**
-     * The central widget, where views go.
+     * The central widget, where the content container goes.
      * @return QWidget
      */
-    public function content(): QWidget
+    public function centralWidget(): QWidget
     {
-        return $this->content;
+        return $this->central;
+    }
+
+    public function size(): array
+    {
+        $this->live();
+
+        return $this->central->size();
+    }
+
+    public function factory(): QtPrimitiveFactory
+    {
+        return $this->factory ??= new QtPrimitiveFactory($this);
+    }
+
+    /**
+     * The session the window's primitives post through.
+     * @return QtSession
+     */
+    public function session(): QtSession
+    {
+        return $this->session;
+    }
+
+    /**
+     * Apply the content container's align() inside the central widget. For the content container.
+     * @param TKPrimitiveGroup&QtNative $content
+     * @return void
+     */
+    public function placeContent(TKPrimitiveGroup&QtNative $content): void
+    {
+        $this->central_layout->setAlignment($content->native(), $content->qtAlignment());
+    }
+
+    /**
+     * The content container fills the central widget.
+     * @param TKPrimitiveGroup $content
+     * @return void
+     * @throws WindowException When the container is not a Qt primitive.
+     */
+    protected function mountContent(TKPrimitiveGroup $content): void
+    {
+        if (! $content instanceof QtNative) {
+            throw new WindowException("'{$content->path()}' is not a Qt primitive.");
+        }
+        $this->central_layout->addWidget($content->native(), 1);
     }
 
     public function menuBar(): ?QtMenuBar
@@ -190,7 +269,27 @@ class QtWindow implements ToolkitWindow
     }
 
     /**
-     * The one close path: the native window is going, post it, let the driver forget it.
+     * @param EventType|int $type
+     * @return void
+     */
+    protected function filtered(EventType|int $type): void
+    {
+        match ($type) {
+            EventType::CLOSE => $this->closed(),
+            EventType::WINDOW_ACTIVATE => $this->session->post(new WindowFocused($this->name)),
+            default => null,
+        };
+    }
+
+    protected function resized(): void
+    {
+        [$width, $height] = $this->central->size();
+        $this->session->postLatest("window.resized.{$this->name}", new WindowResized($this->name, $width, $height));
+    }
+
+    /**
+     * The one close path: tear the content tree down while the native window still holds it,
+     * drop the window's pending resize mail, post the close, let the driver forget the window.
      * @return void
      */
     protected function closed(): void
@@ -199,7 +298,9 @@ class QtWindow implements ToolkitWindow
             return;
         }
 
+        $this->removeContent();
         $this->window = null;
+        $this->session->forgetLatest("window.resized.{$this->name}");
         $this->session->post(new WindowClosed($this->name));
         $this->driver->forget($this->name);
     }

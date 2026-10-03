@@ -74,14 +74,20 @@ it('joins a loop: the loop waiter ends the toolkit sleep the moment a watched st
         $loop->until(function () use (&$checks): bool {
             return ++$checks > 2;
         });
-        $proc = proc_open([PHP_BINARY, '-n', '-r', 'usleep(100000); echo "x";'], [1 => $write], $pipes);
+        $proc = proc_open([PHP_BINARY, '-n', '-r', 'usleep(100000); echo hrtime(true);'], [1 => $write], $pipes);
 
-        $t = hrtime(true);
+        $started = hrtime(true);
         $session->pump(2_000_000_000);
-        $ms = (hrtime(true) - $t) / 1e6;
+        $returned = hrtime(true);
         proc_close($proc);
+        stream_set_blocking($read, false);
+        $written = (int) fread($read, 64);
 
-        expect($ms)->toBeGreaterThan(50.0)->toBeLessThan(500.0);
+        // hrtime is the system's monotonic clock in both processes: the wait outlasted the write
+        // and ended within 100 ms of it, however long the child took to start.
+        expect($written)->toBeGreaterThan($started)
+            ->and($returned)->toBeGreaterThanOrEqual($written)
+            ->and(($returned - $written) / 1e6)->toBeLessThan(100.0);
     } finally {
         $session->leaveLoop();
     }

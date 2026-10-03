@@ -5,7 +5,8 @@ okf_version: "0.2"
 # jovian/venusian-qt
 
 * [Session](architecture/session.md) - QApplication session: construct once, stay up with no windows, budgeted dispatcher pump, deferred deletes, one-shot notifier wake.
-* [Windows and menus](architecture/windows-and-menus.md) - QMainWindow per name, event-filter mail, QMenuBar with roles, parentless default bar on macOS, About box.
+* [Windows and menus](architecture/windows-and-menus.md) - QMainWindow per name, content container on the central widget, event-filter mail incl. coalesced resize, QMenuBar with roles, parentless default bar on macOS, About box.
+* [Primitives](architecture/primitives.md) - Qt concretes of the TK primitives: factory, containers over Qt layouts, style-sheet styling, event-filter resize mail, leaf signals to view mail, table and video.
 
 # API
 
