@@ -5,7 +5,7 @@ description: Qt concretes of Surface's TK primitives - factory, containers over 
 resource: src/Primitives/
 tags: [qt, primitives, widgets, layout]
 status: draft
-generated: { by: claude-opus/5.5, at: 2026-10-02T22:59:16Z }
+generated: { by: claude-opus/5.5, at: 2026-10-04T03:11:30Z }
 sources:
   - id: trait
     resource: src/Primitives/Concerns/QtPrimitive.php
@@ -65,6 +65,7 @@ Event-filter closures that outlive a call (image resize, window close/activate/r
 | label | `QLabel`, `PLAIN_TEXT` (AutoText would render HTML-looking text); alignment keeps vertical centring (`LEFT|V_CENTER`…) | none |
 | button | `QPushButton`, text with `&` doubled (Qt's mnemonic marker) | `clicked(bool)` → `ButtonClicked` (disabled: Qt swallows the click) |
 | image | host `QWidget` + `QGridLayout`: one cell holds a `QSpacerItem` at the file's size and an Ignored×Ignored `QLabel`; `QPixmap::load` (false → `WindowException`, image left empty) | none |
+| canvas | host `QWidget` + `QGridLayout` holding one Ignored×Ignored `QLabel` with scaled contents, so the layout sizes it whatever the framebuffer's size. `present()` → `QImage` in `RGBX8888` (a copy; alpha ignored) → `QPixmap::fromImage` → `setPixmap`. Scale = `devicePixelRatioF`. |
 | separator | `QFrame` `H_LINE`/`V_LINE`, `SUNKEN` | none |
 | progress bar | `QProgressBar` 0..1000, text hidden; null → range 0..0 (busy) | none |
 | text input | `QLineEdit`; secret → `PASSWORD` echo | `textChanged(QString)` → `TextChanged`; `returnPressed()` → `TextSubmitted` |
