@@ -353,24 +353,27 @@ it('posts DateChanged from a date edit, shows today for no date, and posts nothi
 it('sizes an image from the file, shrinks it with its slot and grows it back', function (): void {
     $window = driver()->open('main', 300, 200);
     $row = $window->row('r');
-    $image = $row->image('i', __DIR__.'/../fixtures/wide.png');
+    $image = $row->image('i', __DIR__.'/../fixtures/wider.png');
     // A sibling that takes the spare width and can shrink to nothing.
     $row->column('rest')->fill();
     $window->present();
     pumpFor(0.2);
 
     // Width from the file; height is the row's (align FILL on the cross axis).
-    expect($image->size()[0])->toBe(40);
+    expect($image->size()[0])->toBe(240);
 
+    // 240 is wider than the narrowest window a compositor will grant (labwc holds one at
+    // 100 wide when asked for 20), so the image has to give up width on every platform.
     $window->native()->resize(20, 200);
     pumpFor(0.2);
-    expect($image->size()[0])->toBeLessThan(40)
-        ->and(pixmapSize($image->label())[0])->toBeLessThan(40);
+    expect($window->native()->size()[0])->toBeLessThan(240)
+        ->and($image->size()[0])->toBeLessThan(240)
+        ->and(pixmapSize($image->label())[0])->toBeLessThan(240);
 
     $window->native()->resize(300, 200);
     pumpFor(0.2);
-    expect($image->size()[0])->toBe(40)
-        ->and(pixmapSize($image->label()))->toBe([40, 20]);
+    expect($image->size()[0])->toBe(240)
+        ->and(pixmapSize($image->label()))->toBe([240, 20]);
 });
 
 it('shows button, check box and label text literally', function (): void {

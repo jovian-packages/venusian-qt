@@ -102,3 +102,18 @@ it('takes a framebuffer before the window is shown when given a size, and goes w
     expect(fn () => $canvas->present())->toThrow(WindowException::class, 'was removed')
         ->and($window->view('m.view'))->toBeNull();
 });
+
+it('pipes an ext-fb framebuffer to the label by address', function (): void {
+    $window = driver()->open('main', 300, 200);
+    $canvas = $window->column('m')->canvas('view')->fill();
+    $window->present();
+    pumpFor(0.2);
+
+    $buffer = $canvas->framebuffer('dirty', driver: 'extended');
+    $buffer->fill(0xFF6600FF);
+    $canvas->present();
+    pumpFor(0.05);
+
+    expect($buffer->pointer())->not->toBe(0)
+        ->and(shown($canvas))->toBe([$buffer->viewportWidth(), $buffer->viewportHeight()]);
+})->skip(! class_exists(FbBuffer::class), 'ext-fb is not loaded in this PHP.');

@@ -20,7 +20,8 @@ use Surface\Windows\Primitives\TKPrimitiveGroup;
  * A canvas over a host QWidget holding one QLabel. The label is Ignored×Ignored with scaled
  * contents, so the layout sizes the canvas and the pixmap is stretched over it, whatever the
  * framebuffer's size. Each present() copies the framebuffer's RGBA8 bytes into a QImage in the
- * RGBX8888 format (the fourth byte ignored, so opaque) and shows it as the label's pixmap.
+ * RGBX8888 format (the fourth byte ignored, so opaque) and shows it as the label's pixmap; an
+ * ext-fb framebuffer is copied by address, never through a PHP string.
  */
 class QtCanvas extends TKCanvas implements QtNative
 {
@@ -69,5 +70,10 @@ class QtCanvas extends TKCanvas implements QtNative
     protected function applyPixels(string $rgba8, int $width, int $height): void
     {
         $this->label->setPixmap(QPixmap::fromImage(new QImage($rgba8, $width, $height, $width * 4, Format::RGBX8888)));
+    }
+
+    protected function applyAddress(int $address, int $width, int $height, int $stride, array $damage): void
+    {
+        $this->label->setPixmap(QPixmap::fromImage(new QImage($address, $width, $height, $stride, Format::RGBX8888)));
     }
 }

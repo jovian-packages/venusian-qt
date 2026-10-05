@@ -1,5 +1,9 @@
 # Log
 
+## 2026-10-04
+
+* `QtCanvas` pipes an ext-fb framebuffer: the `QImage` copies its memory by address, so no pixel byte passes through PHP. [primitives](architecture/primitives.md)
+
 ## 2026-10-03
 
 * `QtCanvas`: the framebuffer a `TKCanvas` hands out, shown as a `QLabel`'s pixmap. [primitives](architecture/primitives.md)
