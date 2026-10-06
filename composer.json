@@ -32,9 +32,20 @@
         "venusian-voyager/nuts-and-bolts": "^0.10.1"
     },
     "require-dev": {
+        "jovian/venusian-metal": "^0.10.0",
+        "jovian/venusian-opengl": "^0.10.0",
+        "jovian/venusian-sdl3": "^0.10.0",
         "pestphp/pest": "^4",
+        "venusian-surface/drawing": "^0.10.0",
+        "venusian-surface/fonts": "^0.10.0",
         "venusian-voyager/config": "^0.10.1",
         "venusian-voyager/vessel": "^0.10.1"
+    },
+    "suggest": {
+        "ext-appkit": "On macOS, lends a Metal layer to the 'metal' rendering engine: the layer Qt makes for a Metal QWindow is reached through ext-appkit.",
+        "ext-metal": "With ext-appkit, the 'metal' engine (jovian/venusian-metal) draws into a canvas.",
+        "ext-opengl": "A canvas lends its QOpenGLWidget's context to the 'opengl' rendering engine (jovian/venusian-opengl) when ext-opengl is loaded.",
+        "ext-sdl3": "On macOS, with ext-appkit and ext-metal, a canvas lends an SDL window over Qt's NSWindow to the 'sdl3' rendering engine (jovian/venusian-sdl3) when ext-sdl3 is loaded."
     },
     "autoload": {
         "psr-4": {

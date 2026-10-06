@@ -21,7 +21,7 @@ sources:
 | initialize (once) | `new QApplication([argv0])`, `setApplicationName`, `setDesktopFileName`; single-shot `PRECISE_TIMER` for budgets |
 | connect | `setQuitOnLastWindowClosed(false)` |
 | disconnect | `setQuitOnLastWindowClosed(true)` (Qt default) |
-| `pump($ns)` | budget > 0: start the timer (ceil ms) + one `processEvents(WAIT_FOR_MORE_EVENTS)` on the dispatcher, stop the timer; then up to `DRAIN_LIMIT` (64) `processEvents(ALL_EVENTS)` while they dispatch; then `sendPostedEvents(null, DEFERRED_DELETE)` |
+| `pump($ns)` | budget > 0: start the timer (ceil ms) + one `processEvents(WAIT_FOR_MORE_EVENTS)` on the dispatcher, stop the timer; then up to `DRAIN_LIMIT` (64) `processEvents(ALL_EVENTS)` while they dispatch; then `sendPostedEvents(null, DEFERRED_DELETE)`; on macOS, then `QtCanvas::sweepSdlWindows()` |
 
 Deferred deletes: Qt runs a `deleteLater()` posted outside any event handler only from `exec()`; a pumped app never enters it, so the pump asks for them at its own level. Covers replaced menu bars, released notifiers, app `deleteLater()` calls. Delete-on-close windows go through the same path.
 

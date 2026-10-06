@@ -1,5 +1,15 @@
 # Log
 
+## 2026-10-06
+
+* `QtCanvas` lends its `QOpenGLWidget`'s context to the `opengl` engine on macOS and Linux: 4.1 core on macOS, ES 3 elsewhere; `paintGL()` copies the frame. [primitives](architecture/primitives.md)
+
+## 2026-10-05
+
+* `QtCanvas` lends an SDL window over Qt's `NSWindow` to the `sdl3` engine on macOS: SDL's swapchain view moved into the Metal `QWindow`'s view, the window destroyed once the device lets go. [primitives](architecture/primitives.md)
+* The canvas restores the responder chain SDL rewires; the session sweeps parked SDL windows every pump. [primitives](architecture/primitives.md)
+* `QtCanvas` lends Qt's `CAMetalLayer` (a Metal `QWindow` in a window container, the layer read through ext-appkit) to the `metal` engine on macOS. [primitives](architecture/primitives.md)
+
 ## 2026-10-04
 
 * `QtCanvas` pipes an ext-fb framebuffer: the `QImage` copies its memory by address, so no pixel byte passes through PHP. [primitives](architecture/primitives.md)

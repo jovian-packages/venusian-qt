@@ -2,6 +2,7 @@
 
 namespace Jovian\Toolkits\Qt\Bridge;
 
+use Jovian\Toolkits\Qt\Primitives\QtCanvas;
 use QAbstractEventDispatcher;
 use QApplication;
 use QCoreApplication;
@@ -124,6 +125,10 @@ class QtSession extends BridgedToolkitSession
         // Qt runs a deleteLater() posted outside any event handler only from exec(), which a
         // pumped application never enters; asking for deferred deletes at this level runs them.
         QCoreApplication::sendPostedEvents(null, EventType::DEFERRED_DELETE->value);
+
+        if (PHP_OS_FAMILY === 'Darwin') {
+            QtCanvas::sweepSdlWindows();
+        }
 
         return $dispatched;
     }
