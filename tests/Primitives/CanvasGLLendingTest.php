@@ -91,14 +91,6 @@ function qtGlCanvas(int $width = 300, int $height = 200): array
     return [$window, $canvas];
 }
 
-/** What the canvas lends here: the Metal and SDL kinds come first on macOS where they are offered. */
-function qtLends(): string
-{
-    return PHP_OS_FAMILY === 'Darwin' && class_exists(NSView::class) && class_exists(CAMetalLayer::class)
-        ? (function_exists('SDL_CreateWindowWithProperties') ? 'metal-layer, sdl-window, gl-context' : 'metal-layer, gl-context')
-        : 'gl-context';
-}
-
 it('lends a GL context when ext-opengl is loaded', function (): void {
     [$window, $canvas] = qtGlCanvas();
 

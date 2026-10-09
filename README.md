@@ -31,3 +31,9 @@ $engine = app('drawing')->renderer('opengl', ['output' => $canvas]);
 $engine->frame(fn ($g) => $g->clear(Color::rgb(16, 24, 32))->fillEllipse(160, 120, 40, 40, Color::rgb(255, 128, 0)));
 $canvas->present();
 ```
+
+With ext-vulkan loaded and a Qt built with Vulkan, the canvas lends a Vulkan surface first in `surfaces()`: a `QWindow` with a Vulkan surface takes the label's place, its `QVulkanInstance` set over the engine's own `VkInstance`, and the `vulkan` engine (jovian/venusian-vulkan) presents into the `VkSurfaceKHR` Qt makes for it through its swapchain. Present the window first. On macOS Qt loads the Vulkan loader by name and Homebrew's is outside dyld's search path: set `QT_VULKAN_LIB` before the application starts (`export QT_VULKAN_LIB="$(pkg-config --variable=libdir vulkan)/libvulkan.1.dylib"`). Without it, or when it names another loader than the one ext-vulkan calls (`vk_loader_path()`), the canvas offers no Vulkan surface there, and the `vulkan` engine presents through the Metal layer instead (MoltenVK). On Linux it works under Wayland and X11 (xcb) alike. If the engine's device is let go before the canvas reclaims, the canvas takes the surface back itself.
+
+```php
+$engine = app('drawing')->renderer('vulkan', ['output' => $canvas]);
+```

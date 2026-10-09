@@ -1,7 +1,17 @@
 # Log
 
+## 2026-10-09
+
+* The desktop identity is `config/app.php` `app.id`; `bridge.qt.desktop_file_name` and the `org.venusian.Surface` default are gone, and connect throws without `app.id`. A packaged build names its `.desktop` file after the same id. [Config](api/config.md).
+
+## 2026-10-08
+
+* `QtCanvas::applyPixels()` takes the damage list Surface now passes; the whole frame is still shown.
+
 ## 2026-10-06
 
+* Vulkan lending review fixes: explicit Qt teardown on reclaim, the canvas takes the surface back when the device lets go first, Qt must load ext-vulkan's own loader; verified on xcb too. [primitives](architecture/primitives.md)
+* `QtCanvas` lends a Vulkan surface to the `vulkan` engine on macOS and Linux: a Vulkan `QWindow` whose `QVulkanInstance` is the engine's `VkInstance`, the surface Qt makes for it, first in `surfaces()`. macOS needs `QT_VULKAN_LIB`. [primitives](architecture/primitives.md)
 * `QtCanvas` lends its `QOpenGLWidget`'s context to the `opengl` engine on macOS and Linux: 4.1 core on macOS, ES 3 elsewhere; `paintGL()` copies the frame. [primitives](architecture/primitives.md)
 
 ## 2026-10-05

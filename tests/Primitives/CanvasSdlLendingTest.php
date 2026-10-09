@@ -92,7 +92,7 @@ it('lends an SDL window when ext-sdl3 is loaded, after the Metal layer', functio
     $contents = array_map(fn (NSWindow $window): ?int => $window->contentView()?->pointer(), NSApplication::sharedApplication()->windows());
 
     // ext-opengl adds the GL context after both.
-    expect($canvas->surfaces())->toBe([SurfaceKind::METAL_LAYER, SurfaceKind::SDL_WINDOW, ...(extension_loaded('opengl') ? [SurfaceKind::GL_CONTEXT] : [])]);
+    expect($canvas->surfaces())->toBe([...qtVulkanKinds(), SurfaceKind::METAL_LAYER, SurfaceKind::SDL_WINDOW, ...(extension_loaded('opengl') ? [SurfaceKind::GL_CONTEXT] : [])]);
 
     $surface = $canvas->lend(SurfaceKind::SDL_WINDOW, new QtLayerBorrower);
     $host = hostOf($surface);

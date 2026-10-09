@@ -55,8 +55,8 @@ class QtSession extends BridgedToolkitSession
      * @param string $desktop_file_name the desktop identity: Wayland's app_id, the .desktop file it matches
      */
     public function __construct(
-        protected readonly string $application_name = 'Venusian',
-        protected readonly string $desktop_file_name = 'org.venusian.Surface',
+        protected readonly string $application_name,
+        protected readonly string $desktop_file_name,
     ) {
         parent::__construct();
     }

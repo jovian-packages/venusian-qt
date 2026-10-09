@@ -22,6 +22,7 @@ use QSurfaceFormat;
 use QSurfaceFormat\OpenGLContextProfile;
 use QSurfaceFormat\RenderableType;
 use QSurface\SurfaceType;
+use QVulkanInstance;
 use QWidget;
 use QWindow;
 use SDL_Window;
@@ -49,6 +50,12 @@ use Surface\Windows\Primitives\TKPrimitiveGroup;
  * sublayers. With ext-sdl3 too, it lends an SDL window over Qt's NSWindow, SDL_GPU's swapchain
  * view moved into such a Metal QWindow's view.
  *
+ * With ext-vulkan loaded and a Qt built with Vulkan, it lends a Vulkan surface first: a QWindow
+ * with a Vulkan surface in a window container over the label, given a QVulkanInstance over the
+ * borrower's own VkInstance, and the VkSurfaceKHR Qt makes for it. Qt loads the Vulkan loader by
+ * name; on macOS Homebrew's lies outside dyld's search path and is reached only when
+ * QT_VULKAN_LIB names it, so there the kind is offered when a probe instance can be made.
+ *
  * With ext-opengl loaded it lends a GL context on every platform: a QOpenGLPainter (a
  * QOpenGLWidget calling PHP from paintGL()) over the label, its context read back once Qt has
  * made it. present() schedules a paint, and paintGL() copies the borrower's frame into the
@@ -65,6 +72,18 @@ class QtCanvas extends TKCanvas implements QtNative
     protected ?QWindow $metal_window = null;
 
     protected ?QWidget $container = null;
+
+    /** The Vulkan QWindow while a Vulkan surface is lent. */
+    protected ?QWindow $vulkan_window = null;
+
+    /** Qt's instance over the borrower's VkInstance, held while the window uses it. */
+    protected ?QVulkanInstance $vulkan_instance = null;
+
+    /** Whether Qt can make a Vulkan instance here: probed once a process. */
+    private static ?bool $vulkan = null;
+
+    /** True while reclaim() runs: the lent surface's release is the canvas's own then. */
+    private bool $reclaiming = false;
 
     /** The SDL window over Qt's NSWindow, held while lent. */
     protected ?SDL_Window $sdl_window = null;
@@ -126,6 +145,12 @@ class QtCanvas extends TKCanvas implements QtNative
         return $this->label;
     }
 
+    /** The Vulkan window standing in for the label while a Vulkan surface is lent. */
+    public function vulkanWindow(): ?QWindow
+    {
+        return $this->vulkan_window;
+    }
+
     /** The GL view standing in for the label while a GL context is lent. */
     public function glWidget(): ?QOpenGLPainter
     {
@@ -144,7 +169,7 @@ class QtCanvas extends TKCanvas implements QtNative
         return $this->native->devicePixelRatioF();
     }
 
-    protected function applyPixels(string $rgba8, int $width, int $height): void
+    protected function applyPixels(string $rgba8, int $width, int $height, array $damage): void
     {
         $this->label->setPixmap(QPixmap::fromImage(new QImage($rgba8, $width, $height, $width * 4, Format::RGBX8888)));
     }
@@ -155,12 +180,13 @@ class QtCanvas extends TKCanvas implements QtNative
     }
 
     /**
-     * On macOS with ext-appkit and ext-metal: a Metal layer, and an SDL window
-     * when ext-sdl3 is loaded too. A GL context wherever ext-opengl is loaded.
+     * A Vulkan surface first where Qt can make one for ext-vulkan's instance. On macOS with
+     * ext-appkit and ext-metal: a Metal layer, and an SDL window when ext-sdl3 is loaded too.
+     * A GL context wherever ext-opengl is loaded.
      */
     public function surfaces(): array
     {
-        $kinds = [];
+        $kinds = self::lendsVulkan() ? [SurfaceKind::VULKAN_SURFACE] : [];
         if (PHP_OS_FAMILY === 'Darwin' && class_exists(NSView::class) && class_exists(CAMetalLayer::class)) {
             $kinds[] = SurfaceKind::METAL_LAYER;
             if (function_exists('SDL_CreateWindowWithProperties')) {
@@ -172,6 +198,35 @@ class QtCanvas extends TKCanvas implements QtNative
         }
 
         return $kinds;
+    }
+
+    /**
+     * A Vulkan surface is taken back when its borrower releases it first (a device let go before
+     * its engine): the device has dropped its swapchain by then, and Qt's surface must go while
+     * the device's instance still exists.
+     */
+    public function lend(SurfaceKind $kind, SurfaceBorrower $to): LentSurface
+    {
+        $surface = parent::lend($kind, $to);
+        if ($kind === SurfaceKind::VULKAN_SURFACE) {
+            $surface->onRelease(function () use ($surface): void {
+                if (! $this->reclaiming && $this->lent === $surface) {
+                    $this->reclaim();
+                }
+            });
+        }
+
+        return $surface;
+    }
+
+    public function reclaim(): void
+    {
+        $this->reclaiming = true;
+        try {
+            parent::reclaim();
+        } finally {
+            $this->reclaiming = false;
+        }
     }
 
     /** Parked SDL windows whose device has let go are destroyed first. */
@@ -187,6 +242,7 @@ class QtCanvas extends TKCanvas implements QtNative
         return match ($kind) {
             SurfaceKind::SDL_WINDOW => $this->makeSdlWindow(),
             SurfaceKind::GL_CONTEXT => $this->makeGLWidget(),
+            SurfaceKind::VULKAN_SURFACE => $this->makeVulkanWindow($handles),
             default => $this->makeMetalLayer(),
         };
     }
@@ -195,6 +251,11 @@ class QtCanvas extends TKCanvas implements QtNative
     {
         if ($kind === SurfaceKind::GL_CONTEXT) {
             $this->removeGLWidget();
+
+            return;
+        }
+        if ($kind === SurfaceKind::VULKAN_SURFACE) {
+            $this->removeVulkanWindow();
 
             return;
         }
@@ -367,6 +428,120 @@ class QtCanvas extends TKCanvas implements QtNative
 
         return str_starts_with($platform, 'wayland') || $platform === 'eglfs'
             || ($platform === 'xcb' && getenv('QT_XCB_GL_INTEGRATION') === 'xcb_egl');
+    }
+
+    /**
+     * Whether Qt was built with Vulkan, ext-vulkan is loaded, Qt would load the same Vulkan loader
+     * ext-vulkan calls, and Qt can load it: a probe instance of Qt's own is made and destroyed once
+     * a process. Before the application exists Qt has no platform to ask: false then, and asked
+     * again later.
+     */
+    public static function lendsVulkan(): bool
+    {
+        if (! self::sameLoader()) {
+            return false;
+        }
+        if (! is_null(self::$vulkan)) {
+            return self::$vulkan;
+        }
+        if (! class_exists(QVulkanInstance::class) || ! extension_loaded('vulkan')) {
+            return self::$vulkan = false;
+        }
+        $probe = new QVulkanInstance();
+        try {
+            $made = $probe->create();
+        } catch (\QtException) {
+            return false;
+        }
+        $probe->destroy();
+
+        return self::$vulkan = $made;
+    }
+
+    /**
+     * Qt resolves its Vulkan calls through the loader it loads itself: QT_VULKAN_LIB, else the
+     * system's by name. A VkInstance from ext-vulkan is valid only in the loader that made it, so
+     * a QT_VULKAN_LIB that names another file is refused; unset, the name resolves to the system
+     * loader ext-vulkan links on Linux, and to nothing on macOS (Homebrew's lies outside dyld's
+     * search path).
+     */
+    private static function sameLoader(): bool
+    {
+        if (! function_exists('vk_loader_path')) {
+            return false;
+        }
+        $named = getenv('QT_VULKAN_LIB');
+        if ($named === false || $named === '') {
+            return PHP_OS_FAMILY !== 'Darwin';
+        }
+        $ours = vk_loader_path();
+
+        return ! is_null($ours) && realpath($named) !== false && realpath($named) === realpath($ours);
+    }
+
+    /**
+     * A QWindow with a Vulkan surface in a window container over the label, its QVulkanInstance
+     * over the borrower's VkInstance (its 'instance' handle): the surface Qt makes is one the
+     * borrower's device presents into. Qt makes it once the window exists and is exposed: the
+     * window must be presented, and Qt is pumped (at most 2 s) until it is.
+     *
+     * @param  array<string, int>  $handles
+     * @return array{surface: int}
+     * @throws WindowException Before the window is presented, without an instance, or when Qt makes no surface.
+     */
+    private function makeVulkanWindow(array $handles): array
+    {
+        if (! $this->native->isVisible()) {
+            throw new WindowException("Canvas '{$this->path()}' has no Vulkan surface yet: present the window first.");
+        }
+        $instance = new QVulkanInstance();
+        $instance->setVkInstance($handles['instance'] ?? throw new WindowException("Canvas '{$this->path()}': the borrower lends no 'instance' to make a Vulkan surface against."));
+        if (! $instance->create()) {
+            throw new WindowException("Canvas '{$this->path()}': Qt could not adopt the borrower's Vulkan instance (VkResult {$instance->errorCode()}).");
+        }
+        $window = new QWindow();
+        $window->setSurfaceType(SurfaceType::VULKAN_SURFACE);
+        $window->setVulkanInstance($instance);
+        $container = QWidget::createWindowContainer($window, $this->native);
+        $this->cell->addWidget($container, 0, 0);
+        $this->label->hide();
+        $container->show();
+        $window->create();
+        $this->vulkan_instance = $instance;
+        $this->vulkan_window = $window;
+        $this->container = $container;
+        $until = microtime(true) + 2.0;
+        while (! $window->isExposed() && microtime(true) < $until) {
+            QCoreApplication::processEvents(ProcessEventsFlag::ALL_EVENTS, 10);
+        }
+        $surface = QVulkanInstance::surfaceForWindow($window);
+        if ($surface === 0) {
+            $this->removeVulkanWindow();
+
+            throw new WindowException("Canvas '{$this->path()}': Qt made no Vulkan surface for the window.");
+        }
+
+        return ['surface' => $surface];
+    }
+
+    /**
+     * The window's platform window goes first, and with it the VkSurfaceKHR Qt made (the
+     * borrower's device let go of its swapchain when the surface was released, and its VkInstance
+     * is still alive); then the window gives up Qt's instance and the instance is destroyed, so
+     * nothing a caller may still hold reaches Qt's surface again. Then the container; the label
+     * shows the framebuffer again.
+     */
+    private function removeVulkanWindow(): void
+    {
+        $this->vulkan_window?->destroy();
+        $this->vulkan_window?->setVulkanInstance(null);
+        $this->vulkan_instance?->destroy();
+        $this->vulkan_instance = null;
+        $this->vulkan_window = null;
+        $this->container?->hide();
+        $this->container?->deleteLater();
+        $this->container = null;
+        $this->label->show();
     }
 
     /** @return array{layer: int} */

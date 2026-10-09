@@ -19,6 +19,11 @@ if (! extension_loaded('qt')) {
     throw new RuntimeException('venusian-qt tests need ext-qt loaded.');
 }
 
+// Qt loads the Vulkan loader by name: on macOS Homebrew's lies outside dyld's search path, so name it.
+if (PHP_OS_FAMILY === 'Darwin' && extension_loaded('vulkan') && getenv('QT_VULKAN_LIB') === false) {
+    putenv('QT_VULKAN_LIB='.trim((string) shell_exec('pkg-config --variable=libdir vulkan')).'/libvulkan.1.dylib');
+}
+
 const TEST_MENUS = [
     'main' => [
         ['label' => 'App', 'items' => [
@@ -49,7 +54,8 @@ function driver(): QtBridgeDriver
     if (is_null($driver)) {
         $container = new ControlPanel();
         $container->registerInstance('config', new Repository([
-            'bridge' => ['qt' => ['application_name' => 'QtDriverTests', 'desktop_file_name' => 'org.venusian.QtDriverTests']],
+            'app' => ['name' => 'venusian-qt tests', 'id' => 'org.venusian.QtDriverTests'],
+            'bridge' => ['qt' => ['application_name' => 'QtDriverTests']],
             'windows' => [
                 'about' => ['name' => 'venusian-qt tests', 'version' => '0.10.0', 'copyright' => null],
                 'default_menu' => 'main',
@@ -126,4 +132,27 @@ final class QtLayerBorrower implements SurfaceBorrower
 
         return true;
     }
+}
+
+/** @return list<SurfaceKind> The Vulkan surface, first in every canvas's list, where Qt makes one here. */
+function qtVulkanKinds(): array
+{
+    return Jovian\Toolkits\Qt\Primitives\QtCanvas::lendsVulkan() ? [Surface\Contracts\Drawing\SurfaceKind::VULKAN_SURFACE] : [];
+}
+
+/** What the canvas lends here: a Vulkan surface first where Qt makes one, then the Metal and SDL kinds on macOS where they are offered. */
+function qtLends(): string
+{
+    $kinds = qtVulkanKinds() === [] ? [] : ['vulkan-surface'];
+    if (PHP_OS_FAMILY === 'Darwin' && class_exists(NSView::class) && class_exists(CAMetalLayer::class)) {
+        $kinds = [...$kinds, 'metal-layer', ...(function_exists('SDL_CreateWindowWithProperties') ? ['sdl-window'] : [])];
+    }
+    // GL over CGL on macOS; elsewhere only where Qt's GL is EGL (Wayland, eglfs, or xcb with xcb_egl), as the canvas offers it.
+    $platform = QGuiApplication::platformName();
+    $egl = str_starts_with($platform, 'wayland') || $platform === 'eglfs' || ($platform === 'xcb' && getenv('QT_XCB_GL_INTEGRATION') === 'xcb_egl');
+    if (extension_loaded('opengl') && (PHP_OS_FAMILY === 'Darwin' || $egl)) {
+        $kinds[] = 'gl-context';
+    }
+
+    return implode(', ', $kinds);
 }

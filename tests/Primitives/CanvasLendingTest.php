@@ -40,8 +40,8 @@ it('lends a Metal layer when ext-appkit and ext-metal are loaded', function (): 
     pumpFor(0.2);
     $children = count($canvas->native()->children());
 
-    // The Metal layer first; ext-sdl3 adds the SDL window after it.
-    expect($canvas->surfaces()[0])->toBe(SurfaceKind::METAL_LAYER);
+    // The Metal layer first after a Vulkan surface; ext-sdl3 adds the SDL window after it.
+    expect($canvas->surfaces()[count(qtVulkanKinds())])->toBe(SurfaceKind::METAL_LAYER);
 
     $surface = $canvas->lend(SurfaceKind::METAL_LAYER, new QtLayerBorrower);
     $layer = CAMetalLayer::fromPointer($surface->handle('layer'));
@@ -60,8 +60,9 @@ it('lends nothing a device it cannot host, naming what it can', function (): voi
     $window->present();
     pumpFor(0.2);
 
-    $canvas->lend(SurfaceKind::DMABUF, new QtLayerBorrower);
-})->throws(WindowException::class, 'lends no dmabuf surface (it lends: metal-layer, sdl-window, gl-context).');
+    expect(fn () => $canvas->lend(SurfaceKind::DMABUF, new QtLayerBorrower))
+        ->toThrow(WindowException::class, 'lends no dmabuf surface (it lends: '.(qtVulkanKinds() === [] ? '' : 'vulkan-surface, ').'metal-layer, sdl-window, gl-context).');
+});
 
 it('shows metal frames in the window with no pixel through PHP', function (): void {
     $window = driver()->open('main', 320, 240);

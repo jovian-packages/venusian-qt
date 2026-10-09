@@ -7,6 +7,7 @@ use Jovian\Toolkits\Qt\Windows\QtMenuBar;
 use Jovian\Toolkits\Qt\Windows\QtWindow;
 use QMenuBar;
 use Surface\Bridge\ToolkitBridgeDriver;
+use Surface\Contracts\Bridge\BridgeException;
 use Surface\Contracts\Windows\Menus\MenuProfile as MenuProfileContract;
 use Surface\Contracts\Windows\ToolkitWindowDriver;
 use Surface\Contracts\Windows\WindowException;
@@ -32,10 +33,22 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
     {
         $this->session ??= new QtSession(
             (string) $this->app->get('config')->get('bridge.qt.application_name', 'Venusian'),
-            (string) $this->app->get('config')->get('bridge.qt.desktop_file_name', 'org.venusian.Surface'),
+            $this->applicationId(),
         );
 
         return $this->session->connect();
+    }
+
+    /** The desktop identity: config/app.php app.id, the name a packaged build's .desktop file carries. */
+    protected function applicationId(): string
+    {
+        $id = $this->app->get('config')->get('app.id');
+
+        if (! is_string($id) || $id === '') {
+            throw new BridgeException("config/app.php has no app.id; add 'id' => env('APP_ID', 'com.venusian.app') under name.");
+        }
+
+        return $id;
     }
 
     public function open(string $name, int $width, int $height, ?MenuProfileContract $menu = null): QtWindow

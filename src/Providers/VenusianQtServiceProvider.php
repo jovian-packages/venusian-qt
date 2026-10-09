@@ -2,10 +2,11 @@
 
 namespace Jovian\Toolkits\Qt\Providers;
 
-use Jovian\Toolkits\Qt\Contracts\Bridge\QtBridgeDriver;
 use ReflectionException;
 use Voyager\Contracts\Core\FrameworkCore;
 use Voyager\NutsAndBolts\ServiceProvider;
+use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver as Driver;
+use Jovian\Toolkits\Qt\Contracts\Bridge\QtBridgeDriver as DriverContract;
 
 class VenusianQtServiceProvider extends ServiceProvider
 {
@@ -18,11 +19,13 @@ class VenusianQtServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->registerSingleton(QtBridgeDriver::class, fn (FrameworkCore $app) => $app->get('toolkit-bridge')->driver('qt'));
+        $this->app->registerSingleton(DriverContract::class, fn (FrameworkCore $app) => $app->get('toolkit-bridge')->driver('qt'));
+        $this->app->alias('qt-bridge', DriverContract::class);
     }
 
+    /** The toolkit's driver, registered on the bridge by this package: Surface names no toolkit. */
     public function boot(): void
     {
-
+        $this->app->get('toolkit-bridge')->extend('qt', fn ($app): Driver => new Driver($app));
     }
 }
