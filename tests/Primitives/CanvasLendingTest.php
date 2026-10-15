@@ -70,6 +70,7 @@ it('shows metal frames in the window with no pixel through PHP', function (): vo
     $window->present();
     pumpFor(0.2);
 
+    requireEngine(MetalDevice::class);
     $engine = new GpuRenderingEngine(new MetalDevice, ...$canvas->pixelSize(), output: $canvas);
     $shown = 0;
     for ($i = 0; $i < 60; $i++) {
@@ -96,6 +97,7 @@ it('re-targets the engine when the window is resized', function (): void {
     $canvas = $window->column('m')->canvas('view')->fill();
     $window->present();
     pumpFor(0.2);
+    requireEngine(MetalDevice::class);
     $engine = new GpuRenderingEngine(new MetalDevice, ...$canvas->pixelSize(), output: $canvas);
     $engine->frame(fn (RenderingEngine $g) => $g->clear(Color::rgb(0, 0, 0)));
     $before = $engine->framebuffer();
@@ -153,6 +155,7 @@ it('lends Qt\'s Metal layer at the canvas\'s pixel size', function (): void {
     pumpFor(0.2);
 
     // Qt leaves the layer's drawable size at zero until something presents: the device sets it at present().
+    requireEngine(MetalDevice::class);
     $engine = new GpuRenderingEngine(new MetalDevice, ...$canvas->pixelSize(), output: $canvas);
     $engine->frame(fn (RenderingEngine $g) => $g->clear(Color::rgb(0, 0, 0)));
     $canvas->present();

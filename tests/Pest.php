@@ -10,6 +10,7 @@ use Surface\Contracts\Drawing\LentSurface;
 use Surface\Contracts\Drawing\SurfaceBorrower;
 use Surface\Contracts\Framebuffers\FormatSpec;
 use Surface\Contracts\Framebuffers\Framebuffer;
+use Surface\Contracts\Windows\Mail\View\PrimitiveMail;
 use Surface\Framebuffers\Native\NativeDirtyFramebuffer;
 use Surface\Windows\ToolkitWindowManager;
 use Voyager\Config\Repository;
@@ -39,6 +40,22 @@ const TEST_MENUS = [
     'tools' => [
         ['label' => 'Tools', 'items' => [
             ['id' => 'tools.measure', 'label' => 'Measure'],
+        ]],
+    ],
+    'editing' => [
+        ['label' => 'App', 'items' => [
+            ['role' => 'quit', 'label' => 'Quit', 'hotkey' => 'q'],
+        ]],
+        ['label' => 'Edit', 'items' => [
+            ['role' => 'undo', 'label' => 'Undo'],
+            ['role' => 'redo', 'label' => 'Redo'],
+            ['separator' => true],
+            ['role' => 'cut', 'label' => 'Cut'],
+            ['role' => 'copy', 'label' => 'Copy'],
+            ['role' => 'paste', 'label' => 'Paste'],
+            ['role' => 'select-all', 'label' => 'Select All'],
+            ['separator' => true],
+            ['id' => 'edit.find', 'label' => 'Find'],
         ]],
     ],
 ];
@@ -85,6 +102,12 @@ function takeMail(QtSession $session): array
     })->call($session);
 }
 
+/** The primitives' mail taken out, the window and lifecycle mail a present or a pump brings dropped. */
+function viewMail(QtSession $session): array
+{
+    return array_values(array_filter(takeMail($session), fn (object $mail): bool => $mail instanceof PrimitiveMail));
+}
+
 /** Keys of the latest mail the session holds until the next flush. */
 function pendingLatest(QtSession $session): array
 {
@@ -101,6 +124,31 @@ function pumpFor(float $seconds): void
     while (microtime(true) < $until) {
         $pump->sleep(10_000_000);
     }
+}
+
+/**
+ * Pump until $area's layout has settled: its widget is visible and its scroll bars read the same
+ * value, maximum and page step on two pumps in a row; say whether that happened within $seconds.
+ */
+function settled(Jovian\Toolkits\Qt\Primitives\QtTextArea $area, float $seconds = 3.0): bool
+{
+    $pump = new ToolkitPump(session());
+    $until = microtime(true) + $seconds;
+    $previous = null;
+    while (microtime(true) < $until) {
+        $pump->sleep(10_000_000);
+        [$horizontal, $vertical] = [$area->native()->horizontalScrollBar(), $area->native()->verticalScrollBar()];
+        $now = [
+            $horizontal->value(), $horizontal->maximum(), $horizontal->pageStep(),
+            $vertical->value(), $vertical->maximum(), $vertical->pageStep(),
+        ];
+        if ($area->native()->isVisible() && $now === $previous) {
+            return true;
+        }
+        $previous = $now;
+    }
+
+    return false;
 }
 
 /** A borrower that keeps what it was asked to present into; its framebuffer is a plain dirty one. */
@@ -155,4 +203,12 @@ function qtLends(): string
     }
 
     return implode(', ', $kinds);
+}
+
+/** Skip unless $device's engine package is installed: the engines are suggested, not required. */
+function requireEngine(string $device): void
+{
+    if (! class_exists($device)) {
+        test()->markTestSkipped("needs {$device}'s engine package");
+    }
 }

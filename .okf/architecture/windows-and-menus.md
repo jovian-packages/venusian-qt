@@ -36,7 +36,7 @@ sources:
 
 * Roles: About → `ABOUT_ROLE`, Quit → `QUIT_ROLE` (macOS moves both into the application menu); every other item `NO_ROLE` so Qt's text heuristic moves nothing.
 * Hotkey → `setShortcut('Ctrl+<KEY>')`; Qt's Ctrl is Command on macOS.
-* `triggered(bool)` (user only, never `setChecked`): toggle → `MenuToggled(checked)`; About → session About; Quit → `QuitRequested(window)`; else `MenuActivated`.
+* `triggered(bool)` (user only, never `setChecked`): toggle → `MenuToggled(checked)`; About → session About; Quit → `QuitRequested(window)`; edit role → `QtMenuBar::edit(QApplication::focusWidget())`, the focused `QLineEdit`/`QPlainTextEdit` slot, no shortcut, no mail; else `MenuActivated`.
 * `setToggle` → `setChecked`, no mail.
 
 Placement: Qt shows a window's bar inside it on Linux and as the global bar on macOS while active.
@@ -48,3 +48,12 @@ Placement: Qt shows a window's bar inside it on Linux and as the global bar on m
 [^window]: QtWindow
 [^bar]: QtMenuBar
 [^driver]: QtBridgeDriver
+
+# Right clicks
+
+`QtRightClicks` per window installs an application `QEventFilter` (context-menu events go to the widget under the pointer) for `CONTEXT_MENU`, mouse press/move/release; removed when the window closes. `QContextMenuEvent` (Qt raises it for the right button and Ctrl-click on macOS) with reason other than Keyboard → right click. On Linux a left press held within `startDragDistance()` for `QStyleHints::mousePressAndHoldInterval()` is a right click: the Pi's touchscreen is registered as a pointer and reaches Qt as a left press, and Qt raises no context menu for a long one (measured 2026-10-09). An event Qt passes up to parents counts once: only when the watched widget is `QApplication::widgetAt(global)`. `at()`: walk `parentWidget()` to the first native a registry primitive owns → `View\RightClicked` (`mapFromGlobal`), nothing if it or a group is disabled; the central widget → `WindowRightClicked`; the main window (menu bar) → nothing. `contentArea()` is the central widget.
+
+Context menus (slice 27): after `View\RightClicked`, the menu of the primitive or its nearest enabled group with one opens. `QtContextMenu` fills a parentless `QMenu` as the bar fills its menus (separators, submenus; each action's `triggered(bool)` posts `MenuActivated`) and `popup()`s it at the click's global point, non-blocking. The filter returns true for the context-menu event it opened a menu for, so the widget's own menu (a text input's) stays shut; a held press opens it from the timer. One open at a time: the next right click hides the last. The window's close (`detach()`) hides an open one: macOS Qt closes it anyway, Linux Qt leaves the parentless popup up. `openMenu()` is the last one built.
+
+Canvas clicks (slice 28): `QtCanvasClicks` per window, its own application `QEventFilter` for mouse press, move and release (returns false; removed on close). An event counts once: when the watched widget is `QApplication::widgetAt(global)` (a canvas's framebuffer shows in a child `QLabel`, walked up to the canvas's host). A left press without `Qt::MetaModifier` (the Control key on macOS: a right click) on an enabled canvas → the press point (`mapFromGlobal` on the host); a move past `startDragDistance()` cancels, and on Linux a release after `mousePressAndHoldInterval()` is no click (a right click); a left release over the same canvas → `View\CanvasClicked` (`view.clicked`) at the press point.
+

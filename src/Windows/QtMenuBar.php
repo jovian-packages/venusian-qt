@@ -5,9 +5,12 @@ namespace Jovian\Toolkits\Qt\Windows;
 use Jovian\Toolkits\Qt\Bridge\QtSession;
 use QAction;
 use QAction\MenuRole as QtMenuRole;
+use QApplication;
+use QLineEdit;
 use QMenu;
 use QMenuBar;
 use QObject;
+use QPlainTextEdit;
 use QWidget;
 use Surface\Contracts\Windows\Mail\MenuActivated;
 use Surface\Contracts\Windows\Mail\MenuToggled;
@@ -19,7 +22,8 @@ use Surface\Windows\Menus\MenuProfile;
 
 /**
  * A menu profile built once into a QMenuBar: folders become menus, items QActions whose
- * triggered(bool) posts mail; toggles are checkable. About and Quit carry Qt's menu roles,
+ * triggered(bool) posts mail (edit roles instead call the focused text widget's slot);
+ * toggles are checkable. About and Quit carry Qt's menu roles,
  * so macOS moves them into the application menu; every other item has no role, so Qt's
  * text heuristic never moves one. About shows a non-modal box.
  */
@@ -131,6 +135,25 @@ class QtMenuBar
         }
     }
 
+    /** Run an edit role on the focused widget: Qt's own slot on a line edit or plain text edit; whether one took it. */
+    public static function edit(?QWidget $focus, MenuRole $role): bool
+    {
+        if (! $focus instanceof QLineEdit && ! $focus instanceof QPlainTextEdit) {
+            return false;
+        }
+        match ($role) {
+            MenuRole::UNDO => $focus->undo(),
+            MenuRole::REDO => $focus->redo(),
+            MenuRole::CUT => $focus->cut(),
+            MenuRole::COPY => $focus->copy(),
+            MenuRole::PASTE => $focus->paste(),
+            MenuRole::SELECT_ALL => $focus->selectAll(),
+            default => null,
+        };
+
+        return $role->isEdit();
+    }
+
     /**
      * What triggered(bool) runs: the user chose the item, and for a toggle Qt has flipped it already.
      * @param MenuItem $item
@@ -142,6 +165,10 @@ class QtMenuBar
 
         if ($item->toggle) {
             return fn (bool $checked) => $this->session->post(new MenuToggled($window, $item->id, $checked));
+        }
+
+        if ($item->role?->isEdit() === true) {
+            return fn () => self::edit(QApplication::focusWidget(), $item->role);
         }
 
         return match ($item->role) {

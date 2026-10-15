@@ -25,16 +25,13 @@
     ],
     "require": {
         "php": "^8.4|^8.5|^8.6",
-        "ext-qt": "^0.10",
+        "ext-qt": "^0.10.3",
         "venusian-surface/bridge": "^0.10.0",
         "venusian-surface/contracts": "^0.10.0",
         "venusian-surface/windows": "^0.10.0",
         "venusian-voyager/nuts-and-bolts": "^0.10.1"
     },
     "require-dev": {
-        "jovian/venusian-metal": "^0.10.0",
-        "jovian/venusian-opengl": "^0.10.0",
-        "jovian/venusian-sdl3": "^0.10.0",
         "jovian/venusian-vulkan": "^0.10.0",
         "pestphp/pest": "^4",
         "venusian-surface/drawing": "^0.10.0",
@@ -43,6 +40,9 @@
         "venusian-voyager/vessel": "^0.10.1"
     },
     "suggest": {
+        "jovian/venusian-metal": "^0.10.0",
+        "jovian/venusian-opengl": "^0.10.0",
+        "jovian/venusian-sdl3": "^0.10.0",
         "ext-appkit": "On macOS, lends a Metal layer to the 'metal' rendering engine: the layer Qt makes for a Metal QWindow is reached through ext-appkit.",
         "ext-metal": "With ext-appkit, the 'metal' engine (jovian/venusian-metal) draws into a canvas.",
         "ext-opengl": "A canvas lends its QOpenGLWidget's context to the 'opengl' rendering engine (jovian/venusian-opengl) when ext-opengl is loaded.",

@@ -12,6 +12,22 @@ use Voyager\IOPools\Waiter\EpollWaiterBackend;
 use Voyager\IOPools\Waiter\KqueueWaiterBackend;
 use Voyager\IOPools\Waiter\Wakes\Readable;
 
+/**
+ * Pump until a 10 ms pump lasts its whole budget: whatever earlier tests left queued (closing
+ * windows, deferred deletes, timers) has run, so a timed sleep measures only itself.
+ */
+function quiet(): void
+{
+    for ($i = 0; $i < 100; $i++) {
+        $t = hrtime(true);
+        session()->pump(10_000_000);
+        if (hrtime(true) - $t >= 9_000_000) {
+            return;
+        }
+    }
+    throw new RuntimeException('The Qt session never went quiet.');
+}
+
 it('constructs the application, named, and keeps it up with no windows while connected', function (): void {
     $session = session();
 
@@ -31,7 +47,7 @@ it('constructs the application, named, and keeps it up with no windows while con
 });
 
 it('waits at most the budget when nothing arrives', function (): void {
-    session()->pump(0);
+    quiet();
 
     $t = hrtime(true);
     session()->pump(30_000_000);
@@ -62,6 +78,7 @@ it('joins a loop: the loop waiter ends the toolkit sleep the moment a watched st
         public function woke(array $fired): void { fread($this->stream, 64); }
     });
 
+    quiet();
     $session = session();
     $session->joinLoop($loop);
 

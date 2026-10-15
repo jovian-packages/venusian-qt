@@ -37,3 +37,27 @@ With ext-vulkan loaded and a Qt built with Vulkan, the canvas lends a Vulkan sur
 ```php
 $engine = app('drawing')->renderer('vulkan', ['output' => $canvas]);
 ```
+
+## Edit menu
+
+A profile's edit roles call the focused `QLineEdit`'s or `QPlainTextEdit`'s own slot: `undo`, `redo`, `cut`, `copy`, `paste`, `selectAll`. They take no shortcut: Qt's text widgets already take the standard keys (Command on macOS), and a table keeps its own Select All key.
+
+## Links
+
+`link(name, text, url)` is a rich-text QLabel holding one anchor, with `openExternalLinks` on: Qt opens the URL when it is clicked or activated from the keyboard, in the browser for http and https, and nothing posts. Text and URL are HTML-escaped, so each shows and opens as written. A disabled link is disabled.
+
+## Right-click mail
+
+A right click in a window posts mail naming what was clicked: `view.right-clicked.<window>.<path>` for the innermost primitive under the pointer (`x`, `y` in that primitive), or `window.right-clicked.<window>` on bare content (`x`, `y` in the content area). A right click is the right button, Ctrl-click on macOS, or (on Linux) a left press held still for Qt's press-and-hold interval, which is how a touchscreen registered as a pointer right-clicks; the keyboard menu key posts nothing, and neither does a disabled primitive. Native context menus (a text field's edit menu) still open.
+
+```php
+foreach ($mail as $m) {
+    if ($m instanceof \Surface\Contracts\Windows\Mail\View\RightClicked) {
+        $this->menuFor($m->path, $m->x, $m->y);
+    }
+}
+```
+
+## Text areas
+
+`textArea(name, value)` is a `QPlainTextEdit`. Read-only keeps mouse and keyboard selection; wrap is the widget width or none; a monospace font with no family names the system fixed font (`QFontDatabase`). Line backgrounds (full width) and range colours are extra selections painted over the text, so the document and its undo stack never change, and a new value clears them. Line selection and the selection read back count UTF-16 like Qt, so accented letters and emoji land on the right characters. The scroll position is the scroll bars' as content fractions; while watched, `view.scrolled.<window>.<path>` posts `ViewScrolled` for the user's scrolls (bar, wheel, keyboard, a resize) and never for the area's own setters.

@@ -222,15 +222,16 @@ trait QtPrimitive
     }
 
     /**
-     * Text-bearing kinds: size, weight and family as style-sheet font properties.
+     * Text-bearing kinds: size, weight and family as style-sheet font properties; monospace with no family names the system's fixed font.
      * @param FontSpec $font
      * @return void
      */
     protected function applyFont(FontSpec $font): void
     {
+        $family = $font->family ?? ($font->monospace ? \QFontDatabase::systemFont(\QFontDatabase\SystemFont::FIXED_FONT)->family() : null);
         $this->setStyle('font-size', "{$font->size}pt");
         $this->setStyle('font-weight', (string) $font->weight->toCssWeight());
-        $this->setStyle('font-family', is_null($font->family) ? null : '"'.addcslashes($font->family, '"\\').'"');
+        $this->setStyle('font-family', is_null($family) ? null : '"'.addcslashes($family, '"\\').'"');
     }
 
     /**

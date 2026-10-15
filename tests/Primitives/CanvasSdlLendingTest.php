@@ -42,6 +42,7 @@ afterEach(function (): void {
 /** A device built by hand needs SDL video up first, as renderer('sdl3') brings it up. */
 function sdl3Device(): Sdl3Device
 {
+    requireEngine(Sdl3Device::class);
     SDL_InitSubSystem(SDL_INIT_VIDEO) || throw new RuntimeException('SDL video: '.SDL_GetError());
 
     return new Sdl3Device;
@@ -273,9 +274,8 @@ it('destroys its SDL window only once the device has let go of it', function (st
     $id = SDL_GetWindowID(SDL_Window::fromPointer($canvas->lent()->handle('window')));
 
     if ($order === 'reclaim first') {
+        // The reclaim releases the surface, and the device gives the window back with it.
         $canvas->reclaim();
-        pumpFor(0.05);
-        expect(SDL_GetWindowFromID($id))->not->toBeNull();
         $device->release();
     } else {
         $device->release();

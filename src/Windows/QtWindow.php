@@ -62,6 +62,10 @@ class QtWindow implements ToolkitWindow
 
     protected ?QtMenuBar $menu = null;
 
+    protected QtRightClicks $right_clicks;
+
+    protected QtCanvasClicks $canvas_clicks;
+
     public function __construct(
         protected readonly string $name,
         protected readonly QtSession $session,
@@ -103,6 +107,8 @@ class QtWindow implements ToolkitWindow
         $this->window->installEventFilter($this->filter);
         // Deleted any other way (a parent, the application going): the same close path.
         QObject::connect($this->window, 'destroyed(QObject*)', fn () => $this->closed());
+        $this->right_clicks = new QtRightClicks($this, $this->window, $this->central, $session);
+        $this->canvas_clicks = new QtCanvasClicks($this, $session);
 
         if (! is_null($menu)) {
             $this->useMenu($menu, $this->window->menuBar());
@@ -193,6 +199,24 @@ class QtWindow implements ToolkitWindow
      * @return QMainWindow
      * @throws WindowException Once closed.
      */
+    /** The window's right clicks, posted as mail. */
+    public function rightClicks(): QtRightClicks
+    {
+        return $this->right_clicks;
+    }
+
+    /** The window's canvas clicks, posted as mail. */
+    public function canvasClicks(): QtCanvasClicks
+    {
+        return $this->canvas_clicks;
+    }
+
+    /** Where views go: the central widget, below the menu bar. */
+    public function contentArea(): QWidget
+    {
+        return $this->central;
+    }
+
     public function native(): QMainWindow
     {
         return $this->live();
@@ -298,6 +322,8 @@ class QtWindow implements ToolkitWindow
             return;
         }
 
+        $this->right_clicks->detach();
+        $this->canvas_clicks->detach();
         $this->removeContent();
         $this->window = null;
         $this->session->forgetLatest("window.resized.{$this->name}");

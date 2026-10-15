@@ -127,6 +127,7 @@ it('lends nothing a device it cannot host, naming what it can', function (): voi
 it('shows opengl frames in the window with no pixel through PHP', function (): void {
     [$window, $canvas] = qtGlCanvas(320, 240);
 
+    requireEngine(OpenGLDevice::class);
     $engine = new GpuRenderingEngine(OpenGLDevice::adopting(), ...$canvas->pixelSize(), output: $canvas);
     for ($i = 0; $i < 60; $i++) {
         $engine->frame(function (RenderingEngine $g) use ($i, $canvas): void {
@@ -148,6 +149,7 @@ it('shows opengl frames in the window with no pixel through PHP', function (): v
 
 it('repaints the last frame when the toolkit asks', function (): void {
     [$window, $canvas] = qtGlCanvas();
+    requireEngine(OpenGLDevice::class);
     $engine = new GpuRenderingEngine(OpenGLDevice::adopting(), ...$canvas->pixelSize(), output: $canvas);
     $engine->frame(fn (RenderingEngine $g) => $g->clear(Color::rgb(0, 128, 255)));
     $canvas->present();
@@ -163,6 +165,7 @@ it('repaints the last frame when the toolkit asks', function (): void {
 
 it('re-targets the engine when the window is resized', function (): void {
     [$window, $canvas] = qtGlCanvas();
+    requireEngine(OpenGLDevice::class);
     $engine = new GpuRenderingEngine(OpenGLDevice::adopting(), ...$canvas->pixelSize(), output: $canvas);
     $engine->frame(fn (RenderingEngine $g) => $g->clear(Color::rgb(0, 0, 0)));
     $canvas->present();
@@ -221,6 +224,7 @@ it('reclaims before it is removed', function (): void {
 });
 
 it('leaves no GL objects behind across lend and release cycles', function (): void {
+    requireEngine(OpenGLDevice::class);
     [$window, $canvas] = qtGlCanvas();
     $programs = [];
     for ($i = 0; $i < 50; $i++) {
@@ -233,6 +237,7 @@ it('leaves no GL objects behind across lend and release cycles', function (): vo
     }
 
     // A last engine's context shares objects with every context before it: none of their programs may still exist.
+    requireEngine(OpenGLDevice::class);
     $engine = new GpuRenderingEngine($probe = OpenGLDevice::adopting(), ...$canvas->pixelSize(), output: $canvas);
     $live = $probe->program();
     $probe->current();
@@ -251,6 +256,7 @@ it('leaves no GL objects behind across lend and release cycles', function (): vo
 });
 
 it('puts back the context that was current when it lends', function (): void {
+    requireEngine(OpenGLDevice::class);
     [$window, $canvas] = qtGlCanvas();
     $own = new OpenGLDevice;
     $own->current();

@@ -1,7 +1,19 @@
 # Log
 
+## 2026-10-14
+
+* QtTextArea: read-only, wrap, monospace (system fixed font), extra-selection line backgrounds and range colours, line selection over UTF-16, scroll-bar scroll position and ViewScrolled (compare-app text panes, C1).
+
+## 2026-10-10
+
+* QtLink: TKLink over a rich-text QLabel that opens its link (toolkit links).
+* Edit menu: edit roles call the focused line edit's or plain text edit's own slot, no shortcut (HumanInput slice 29).
+
 ## 2026-10-09
 
+* Canvas clicks: `QtCanvasClicks` posts `view.clicked` with the point for a press and release on a canvas (HumanInput slice 28). [windows and menus](architecture/windows-and-menus.md)
+* Context menus: `QtContextMenu`, a `QMenu` popped up by `QtRightClicks` for the primitive or nearest group with a menu, the widget's own menu kept shut; items post `MenuActivated` (HumanInput slice 27). Requires ext-qt `QMenu::popup`. [windows and menus](architecture/windows-and-menus.md)
+* Right-click mail: `QtRightClicks` posts `view.right-clicked` / `window.right-clicked` for Qt's context-menu request (right button, Ctrl-click on macOS) and a touchscreen long press; `QtWindow::contentArea()` (HumanInput slice 26). [windows and menus](architecture/windows-and-menus.md)
 * The desktop identity is `config/app.php` `app.id`; `bridge.qt.desktop_file_name` and the `org.venusian.Surface` default are gone, and connect throws without `app.id`. A packaged build names its `.desktop` file after the same id. [Config](api/config.md).
 
 ## 2026-10-08
