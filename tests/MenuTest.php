@@ -29,9 +29,9 @@ it('builds the profile into the window bar: roles, shortcuts and a checkable tog
         ->and($bar->bar()->parentWidget())->toBe($window->native())
         ->and($bar->action('app.about')->menuRole())->toBe(MenuRole::ABOUT_ROLE)
         ->and($bar->action('app.quit')->menuRole())->toBe(MenuRole::QUIT_ROLE)
-        ->and($bar->action('app.quit')->shortcut())->toBe('Ctrl+Q')
+        ->and($bar->action('app.quit')->shortcut()->toString())->toBe('Ctrl+Q')
         ->and($bar->action('view.refresh')->menuRole())->toBe(MenuRole::NO_ROLE)
-        ->and($bar->action('view.refresh')->shortcut())->toBe('Ctrl+R')
+        ->and($bar->action('view.refresh')->shortcut()->toString())->toBe('Ctrl+R')
         ->and($bar->action('grid')->isCheckable())->toBeTrue()
         ->and($bar->action('grid')->isChecked())->toBeFalse()
         ->and(fn () => $bar->action('nope'))->toThrow(WindowException::class, "No item 'nope'");

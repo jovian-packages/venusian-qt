@@ -210,7 +210,7 @@ it('posts TextChanged for typing, TextSubmitted on return, and nothing for code 
     expect(takeMail(session()))->toEqual([new TextChanged('main', 'm.name', $input->uuid(), 'abc')])
         ->and($input->value())->toBe('abc');
 
-    QMetaObject::invokeMethod($input->native(), 'returnPressed');
+    QMetaObject::invokeMethod($input->native(), 'returnPressed', Qt\ConnectionType::DIRECT_CONNECTION);
     expect(takeMail(session()))->toEqual([new TextSubmitted('main', 'm.name', $input->uuid(), 'abc')]);
 
     $input->setValue('code')->setPlaceholder(null);
@@ -324,6 +324,20 @@ it('posts SelectionChanged from a combo box, and nothing for code changes', func
         ->and($dropdown->selected())->toBe(-1);
 });
 
+/** Qt's date as yyyy-MM-dd. */
+function leavesIso(QDate $date): string
+{
+    return $date->toString(Qt\DateFormat::ISO_DATE);
+}
+
+/** A yyyy-MM-dd day as Qt's date. */
+function leavesQDate(string $iso): QDate
+{
+    [$year, $month, $day] = array_map('intval', explode('-', $iso));
+
+    return new QDate($year, $month, $day);
+}
+
 it('posts DateChanged from a date edit, shows today for no date, and posts nothing for code changes', function (): void {
     $main = presentedColumn();
     $picker = $main->datepicker('when', new DateTimeImmutable('2026-10-02'));
@@ -332,21 +346,21 @@ it('posts DateChanged from a date edit, shows today for no date, and posts nothi
 
     expect($picker)->toBeInstanceOf(QtDatepicker::class)
         ->and($picker->native())->toBeInstanceOf(QDateEdit::class)
-        ->and($picker->native()->date())->toBe('2026-10-02')
-        ->and($unset->native()->date())->toBe($today)
+        ->and(leavesIso($picker->native()->date()))->toBe('2026-10-02')
+        ->and(leavesIso($unset->native()->date()))->toBe($today)
         ->and($unset->date())->toBeNull();
 
-    $picker->native()->setDate('2026-12-25');
+    $picker->native()->setDate(leavesQDate('2026-12-25'));
     expect(takeMail(session()))->toEqual([new DateChanged('main', 'm.when', $picker->uuid(), new DateTimeImmutable('2026-12-25'))])
         ->and($picker->date())->toEqual(new DateTimeImmutable('2026-12-25'));
 
     $picker->setDate(new DateTimeImmutable('2027-01-01'));
     expect(takeMail(session()))->toBe([])
-        ->and($picker->native()->date())->toBe('2027-01-01');
+        ->and(leavesIso($picker->native()->date()))->toBe('2027-01-01');
 
     $picker->setDate(null);
     expect(takeMail(session()))->toBe([])
-        ->and($picker->native()->date())->toBe($today)
+        ->and(leavesIso($picker->native()->date()))->toBe($today)
         ->and($picker->date())->toBeNull();
 });
 
@@ -366,7 +380,7 @@ it('sizes an image from the file, shrinks it with its slot and grows it back', f
     // 100 wide when asked for 20), so the image has to give up width on every platform.
     $window->native()->resize(20, 200);
     pumpFor(0.2);
-    expect($window->native()->size()[0])->toBeLessThan(240)
+    expect($window->native()->size()->width())->toBeLessThan(240)
         ->and($image->size()[0])->toBeLessThan(240)
         ->and(pixmapSize($image->label())[0])->toBeLessThan(240);
 
@@ -408,15 +422,17 @@ it('posts DateChanged when the unset picker\'s shown day is picked, once per pic
     $unset = $main->datepicker('unset');
     $today = (new DateTimeImmutable('today'))->format('Y-m-d');
 
-    QMetaObject::invokeMethod($unset->native()->calendarWidget(), 'clicked', $today);
+    $direct = Qt\ConnectionType::DIRECT_CONNECTION;
+
+    QMetaObject::invokeMethod($unset->native()->calendarWidget(), 'clicked', $direct, leavesQDate($today));
     expect(takeMail(session()))->toEqual([new DateChanged('main', 'm.unset', $unset->uuid(), new DateTimeImmutable($today))])
         ->and($unset->date())->toEqual(new DateTimeImmutable($today));
 
-    QMetaObject::invokeMethod($unset->native()->calendarWidget(), 'clicked', '2026-12-25');
+    QMetaObject::invokeMethod($unset->native()->calendarWidget(), 'clicked', $direct, leavesQDate('2026-12-25'));
     expect(takeMail(session()))->toEqual([new DateChanged('main', 'm.unset', $unset->uuid(), new DateTimeImmutable('2026-12-25'))])
-        ->and($unset->native()->date())->toBe('2026-12-25');
+        ->and(leavesIso($unset->native()->date()))->toBe('2026-12-25');
 
-    QMetaObject::invokeMethod($unset->native()->calendarWidget(), 'clicked', '2026-12-25');
+    QMetaObject::invokeMethod($unset->native()->calendarWidget(), 'clicked', $direct, leavesQDate('2026-12-25'));
     expect(takeMail(session()))->toBe([]);
 });
 
@@ -424,8 +440,8 @@ it('shows dates from year 100 to 9999 and refuses others', function (): void {
     $main = presentedColumn();
     $picker = $main->datepicker('p', new DateTimeImmutable('1500-06-01'));
 
-    expect($picker->native()->date())->toBe('1500-06-01')
-        ->and($picker->native()->minimumDate())->toBe('0100-01-01')
+    expect(leavesIso($picker->native()->date()))->toBe('1500-06-01')
+        ->and(leavesIso($picker->native()->minimumDate()))->toBe('0100-01-01')
         ->and(fn () => $picker->setDate((new DateTimeImmutable('9999-12-31'))->modify('+1 day')))->toThrow(WindowException::class, '100 to 9999')
         ->and($picker->date())->toEqual(new DateTimeImmutable('1500-06-01'))
         ->and(fn () => $main->datepicker('old', new DateTimeImmutable('0050-01-01')))->toThrow(WindowException::class, '100 to 9999')
@@ -450,11 +466,11 @@ it('posts nothing from a removed primitive whose widget has not been deleted yet
     $box->native()->click();
     $toggle->native()->click();
     $input->native()->setText('typed');
-    QMetaObject::invokeMethod($input->native(), 'returnPressed');
+    QMetaObject::invokeMethod($input->native(), 'returnPressed', Qt\ConnectionType::DIRECT_CONNECTION);
     $area->native()->setPlainText('typed');
     $slider->native()->setValue(5000);
     $dropdown->native()->setCurrentIndex(1);
-    $picker->native()->setDate('2027-01-01');
+    $picker->native()->setDate(leavesQDate('2027-01-01'));
 
     expect(takeMail(session()))->toBe([]);
 });

@@ -12,6 +12,7 @@ use QEventFilter;
 use QGuiApplication;
 use QMouseEvent;
 use QObject;
+use QPointF;
 use QWidget;
 use Surface\Contracts\Windows\Mail\View\CanvasClicked;
 use Surface\Contracts\Windows\Primitives\TKCanvas;
@@ -44,11 +45,14 @@ final class QtCanvasClicks
     ) {
         $self = WeakReference::create($this);
         // Held weakly, as the window's own filters: a strong capture is a cycle through C++.
-        $this->filter = new QEventFilter(static function (QObject $watched, Type|int $type, QEvent $event) use ($self): bool {
-            $self->get()?->filtered($watched, $type, $event);
+        $this->filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
+            $type = $event->type();
+            if ($type === Type::MOUSE_BUTTON_PRESS || $type === Type::MOUSE_MOVE || $type === Type::MOUSE_BUTTON_RELEASE) {
+                $self->get()?->filtered($watched, $type, $event);
+            }
 
             return false;
-        }, [Type::MOUSE_BUTTON_PRESS, Type::MOUSE_MOVE, Type::MOUSE_BUTTON_RELEASE]);
+        });
         QCoreApplication::instance()?->installEventFilter($this->filter);
     }
 
@@ -84,7 +88,8 @@ final class QtCanvasClicks
         if (! $watched instanceof QWidget || ! $event instanceof QMouseEvent) {
             return;
         }
-        [$gx, $gy] = $event->globalPosition();
+        $global = $event->globalPosition();
+        [$gx, $gy] = [$global->x(), $global->y()];
         if (QApplication::widgetAt((int) round($gx), (int) round($gy)) !== $watched) {
             return;
         }
@@ -108,7 +113,8 @@ final class QtCanvasClicks
     {
         [$canvas, $native] = $this->canvasOf($hit);
         if (! is_null($canvas)) {
-            [$x, $y] = $native->mapFromGlobal($gx, $gy);
+            $local = $native->mapFromGlobal(new QPointF($gx, $gy));
+            [$x, $y] = [$local->x(), $local->y()];
             $this->press = [$canvas, $gx, $gy, $x, $y, $at];
         }
     }

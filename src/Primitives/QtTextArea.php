@@ -7,6 +7,7 @@ use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QBrush;
 use QColor;
 use QCoreApplication;
+use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
 use QObject;
@@ -18,7 +19,7 @@ use QTextCharFormat;
 use QTextCursor;
 use QTextCursor\MoveMode;
 use QTextCursor\MoveOperation;
-use QTextEditExtraSelection;
+use QTextEdit\ExtraSelection;
 use QTextFormat;
 use QTimer;
 use Surface\Contracts\Windows\Mail\View\TextChanged;
@@ -92,11 +93,13 @@ class QtTextArea extends TKTextArea implements QtNative
         // The filter sees the resize before the edit relays its text out to the new width: the
         // rebuild waits a turn of the event loop.
         $self = WeakReference::create($this);
-        $this->viewport_filter = new QEventFilter(static function (QObject $watched, EventType|int $type) use ($self): bool {
-            $self->get()?->viewportResized();
+        $this->viewport_filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
+            if ($event->type() === EventType::RESIZE) {
+                $self->get()?->viewportResized();
+            }
 
             return false;
-        }, [EventType::RESIZE]);
+        });
         $edit->viewport()->installEventFilter($this->viewport_filter);
     }
 
@@ -182,7 +185,7 @@ class QtTextArea extends TKTextArea implements QtNative
                 continue;
             }
             $cursor->setPosition($lines->utf16Start($line + 1), MoveMode::KEEP_ANCHOR);
-            $selections[] = new QTextEditExtraSelection($cursor, $format);
+            $selections[] = new ExtraSelection($cursor, $format);
         }
         $tail = $this->tailSelections();
         $ranges = array_slice($this->native()->extraSelections(), $this->line_selections);
@@ -208,7 +211,7 @@ class QtTextArea extends TKTextArea implements QtNative
             if (! is_null($style->background)) {
                 $format->setBackground(new QBrush(self::qColor($style->background)));
             }
-            $selections[] = new QTextEditExtraSelection($cursor, $format);
+            $selections[] = new ExtraSelection($cursor, $format);
         }
         $backgrounds = array_slice($this->native()->extraSelections(), 0, $this->line_selections);
         $this->native()->setExtraSelections([...$backgrounds, ...$selections]);
@@ -269,7 +272,7 @@ class QtTextArea extends TKTextArea implements QtNative
     protected function applyScrollToLine(int $line): void
     {
         $block = $this->native()->document()->findBlockByNumber($line);
-        if (is_null($block)) {
+        if (! $block->isValid()) {
             return;
         }
         $this->applying(fn () => $this->native()->verticalScrollBar()->setValue($block->firstLineNumber()));
@@ -333,7 +336,7 @@ class QtTextArea extends TKTextArea implements QtNative
      * once. If the user's edits have put lines after it, it is one span through its newline,
      * as every other line is.
      *
-     * @return list<QTextEditExtraSelection>
+     * @return list<ExtraSelection>
      */
     private function tailSelections(): array
     {
@@ -349,7 +352,7 @@ class QtTextArea extends TKTextArea implements QtNative
         if ($line < $lines->count() - 1) {
             $span->setPosition($lines->utf16Start($line + 1), MoveMode::KEEP_ANCHOR);
 
-            return [new QTextEditExtraSelection($span, $this->tail_format)];
+            return [new ExtraSelection($span, $this->tail_format)];
         }
         $end = new QTextCursor($document);
         $end->movePosition(MoveOperation::END);
@@ -359,9 +362,9 @@ class QtTextArea extends TKTextArea implements QtNative
         $selections = [];
         if ($row->position() > $from) {
             $span->setPosition($row->position(), MoveMode::KEEP_ANCHOR);
-            $selections[] = new QTextEditExtraSelection($span, $this->tail_format);
+            $selections[] = new ExtraSelection($span, $this->tail_format);
         }
-        $selections[] = new QTextEditExtraSelection($end, $this->tail_format);
+        $selections[] = new ExtraSelection($end, $this->tail_format);
 
         return $selections;
     }

@@ -15,6 +15,7 @@ use QGuiApplication;
 use QMainWindow;
 use QMouseEvent;
 use QObject;
+use QPointF;
 use QTimer;
 use QWidget;
 use Surface\Contracts\Windows\Mail\View\RightClicked;
@@ -63,9 +64,14 @@ final class QtRightClicks
         });
 
         // Held weakly, as the window's own filters: a strong capture is a cycle through C++.
-        $this->filter = new QEventFilter(static function (QObject $watched, Type|int $type, QEvent $event) use ($self): bool {
+        $this->filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
+            $type = $event->type();
+            if ($type !== Type::CONTEXT_MENU && $type !== Type::MOUSE_BUTTON_PRESS && $type !== Type::MOUSE_MOVE && $type !== Type::MOUSE_BUTTON_RELEASE) {
+                return false;
+            }
+
             return $self->get()?->filtered($watched, $type, $event) ?? false;
-        }, [Type::CONTEXT_MENU, Type::MOUSE_BUTTON_PRESS, Type::MOUSE_MOVE, Type::MOUSE_BUTTON_RELEASE]);
+        });
         QCoreApplication::instance()?->installEventFilter($this->filter);
     }
 
@@ -108,7 +114,8 @@ final class QtRightClicks
         }
 
         if ($event instanceof QContextMenuEvent) {
-            [$gx, $gy] = $event->globalPos();
+            $global = $event->globalPos();
+            [$gx, $gy] = [$global->x(), $global->y()];
 
             return $event->reason() !== Reason::KEYBOARD && $this->underPointer($watched, $gx, $gy)
                 && $this->at($watched, (float) $gx, (float) $gy);
@@ -117,7 +124,8 @@ final class QtRightClicks
         if (! $event instanceof QMouseEvent) {
             return false;
         }
-        [$gx, $gy] = $event->globalPosition();
+        $global = $event->globalPosition();
+        [$gx, $gy] = [$global->x(), $global->y()];
         if ($type === Type::MOUSE_BUTTON_PRESS && $event->button() === 1 && $this->hold_on_press && $this->underPointer($watched, (int) round($gx), (int) round($gy))) {
             $this->held = [$watched, $gx, $gy];
             $this->hold->start();
@@ -170,7 +178,8 @@ final class QtRightClicks
                     }
                     $menu ??= $at->contextMenu();
                 }
-                [$x, $y] = $widget->mapFromGlobal($gx, $gy);
+                $local = $widget->mapFromGlobal(new QPointF($gx, $gy));
+                [$x, $y] = [$local->x(), $local->y()];
                 $this->session->post(new RightClicked($this->window->name(), $primitive->path(), $primitive->uuid(), $x, $y));
                 if (! $menu instanceof ContextMenu) {
                     return false;
@@ -182,7 +191,8 @@ final class QtRightClicks
                 return true;
             }
             if ($widget === $this->content) {
-                [$x, $y] = $this->content->mapFromGlobal($gx, $gy);
+                $local = $this->content->mapFromGlobal(new QPointF($gx, $gy));
+                [$x, $y] = [$local->x(), $local->y()];
                 $this->session->post(new WindowRightClicked($this->window->name(), $x, $y));
 
                 return false;

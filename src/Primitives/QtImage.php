@@ -4,6 +4,7 @@ namespace Jovian\Toolkits\Qt\Primitives;
 
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
+use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
 use QGridLayout;
@@ -84,11 +85,13 @@ class QtImage extends TKImage implements QtNative
         $this->cell->addWidget($this->label, 0, 0);
 
         $self = WeakReference::create($this);
-        $this->resize_filter = new QEventFilter(static function (QObject $watched, EventType|int $type) use ($self): bool {
-            $self->get()?->resized();
+        $this->resize_filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
+            if ($event->type() === EventType::RESIZE) {
+                $self->get()?->resized();
+            }
 
             return false;
-        }, [EventType::RESIZE]);
+        });
         $this->label->installEventFilter($this->resize_filter);
 
         $this->applyFile($file);
@@ -181,7 +184,8 @@ class QtImage extends TKImage implements QtNative
             return;
         }
 
-        [$width, $height] = $this->label->size();
+        $size = $this->label->size();
+        [$width, $height] = [$size->width(), $size->height()];
         $ratio = $this->label->devicePixelRatioF();
         if ([$width, $height, $ratio] === $this->rendered_for) {
             return;
@@ -191,7 +195,7 @@ class QtImage extends TKImage implements QtNative
         $scaled = $this->pixmap->scaled(
             (int) round($width * $ratio),
             (int) round($height * $ratio),
-            $this->scaling === ImageScaling::FIT ? AspectRatioMode::KEEP : AspectRatioMode::KEEP_BY_EXPANDING,
+            $this->scaling === ImageScaling::FIT ? AspectRatioMode::KEEP_ASPECT_RATIO : AspectRatioMode::KEEP_ASPECT_RATIO_BY_EXPANDING,
             TransformationMode::SMOOTH_TRANSFORMATION,
         );
         $scaled->setDevicePixelRatio($ratio);

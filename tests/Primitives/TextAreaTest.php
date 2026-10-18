@@ -26,12 +26,12 @@ it('paints line backgrounds and range colours as extra selections, and clears th
     [$line, $range] = $area->native()->extraSelections();
 
     expect($area->native()->extraSelections())->toHaveCount(2)
-        ->and($line->format()->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue()
-        ->and([$line->cursor()->selectionStart(), $line->cursor()->selectionEnd()])->toBe([4, 8])
-        ->and($line->format()->background()->color()->red())->toBe(255)
-        ->and([$range->cursor()->selectionStart(), $range->cursor()->selectionEnd()])->toBe([12, 15])
-        ->and($range->format()->foreground()->color()->blue())->toBe(255)
-        ->and($range->format()->background()->color()->green())->toBe(255);
+        ->and($line->format->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue()
+        ->and([$line->cursor->selectionStart(), $line->cursor->selectionEnd()])->toBe([4, 8])
+        ->and($line->format->background()->color()->red())->toBe(255)
+        ->and([$range->cursor->selectionStart(), $range->cursor->selectionEnd()])->toBe([12, 15])
+        ->and($range->format->foreground()->color()->blue())->toBe(255)
+        ->and($range->format->background()->color()->green())->toBe(255);
 
     $area->setValue("x\ny");
     expect($area->native()->extraSelections())->toBe([])
@@ -44,7 +44,7 @@ it('restyles one kind after the user edits, keeping the other kind where Qt move
     $edit = $area->native();
     $area->setRangeStyles([new TextRangeStyle(2, 4, 2, foreground: Color::hex('#0000ff'))])
         ->setLineBackgrounds([3 => Color::hex('#ff0000')]);
-    $span = fn (QTextEditExtraSelection $selection): array => [$selection->cursor()->selectionStart(), $selection->cursor()->selectionEnd()];
+    $span = fn (QTextEdit\ExtraSelection $selection): array => [$selection->cursor->selectionStart(), $selection->cursor->selectionEnd()];
 
     // The user's edit: lines 2 and 3 are gone, line 1 is shorter. Both styles name lines the text no longer has.
     $edit->setPlainText("on\ntw");
@@ -56,17 +56,17 @@ it('restyles one kind after the user edits, keeping the other kind where Qt move
     [$line, $range] = $edit->extraSelections();
     expect($edit->extraSelections())->toHaveCount(2)
         ->and($span($line))->toBe([0, 3])
-        ->and($line->format()->background()->color()->green())->toBe(255)
+        ->and($line->format->background()->color()->green())->toBe(255)
         ->and($span($range))->toBe($held)
-        ->and($range->format()->foreground()->color()->blue())->toBe(255);
+        ->and($range->format->foreground()->color()->blue())->toBe(255);
 
     $area->setRangeStyles([new TextRangeStyle(1, 1, 1, background: Color::hex('#ffff00'))]);
     [$line, $range] = $edit->extraSelections();
     expect($edit->extraSelections())->toHaveCount(2)
         ->and($span($line))->toBe([0, 3])
-        ->and($line->format()->background()->color()->green())->toBe(255)
+        ->and($line->format->background()->color()->green())->toBe(255)
         ->and($span($range))->toBe([4, 5])
-        ->and($range->format()->background()->color()->red())->toBe(255);
+        ->and($range->format->background()->color()->red())->toBe(255);
 
     $area->setLineBackgrounds([]);
     expect($edit->extraSelections())->toHaveCount(1)
@@ -100,7 +100,7 @@ it('covers every row of a wrapped line with its background, the text\'s last lin
     expect(settled($area))->toBeTrue();
     $edit = $area->native();
     $tail = mb_strlen($first) + 5;
-    $span = fn (QTextEditExtraSelection $selection): array => [$selection->cursor()->selectionStart(), $selection->cursor()->selectionEnd()];
+    $span = fn (QTextEdit\ExtraSelection $selection): array => [$selection->cursor->selectionStart(), $selection->cursor->selectionEnd()];
     $end = $edit->document()->characterCount() - 1;
     $rows = rowStarts($edit, $tail);
     $selections = $edit->extraSelections();
@@ -109,11 +109,11 @@ it('covers every row of a wrapped line with its background, the text\'s last lin
         ->and(count($rows))->toBeGreaterThanOrEqual(3)
         ->and($selections)->toHaveCount(3)
         ->and($span($selections[0]))->toBe([0, mb_strlen($first) + 1])
-        ->and($selections[0]->format()->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue()
+        ->and($selections[0]->format->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue()
         ->and($span($selections[1]))->toBe([$tail, $rows[count($rows) - 1]])
-        ->and($selections[1]->format()->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue()
-        ->and([$selections[2]->cursor()->anchor(), $selections[2]->cursor()->position()])->toBe([$end, $end])
-        ->and($selections[2]->format()->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue();
+        ->and($selections[1]->format->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue()
+        ->and([$selections[2]->cursor->anchor(), $selections[2]->cursor->position()])->toBe([$end, $end])
+        ->and($selections[2]->format->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue();
 
     $was = $span($selections[1]);
     $window->native()->resize(220, 400);
@@ -123,7 +123,7 @@ it('covers every row of a wrapped line with its background, the text\'s last lin
 
     expect($span($selections[1]))->toBe([$tail, $rows[count($rows) - 1]])
         ->and($span($selections[1]))->not->toBe($was)
-        ->and([$selections[2]->cursor()->anchor(), $selections[2]->cursor()->position()])->toBe([$end, $end]);
+        ->and([$selections[2]->cursor->anchor(), $selections[2]->cursor->position()])->toBe([$end, $end]);
 });
 
 it('selects lines over UTF-16 positions and reads the selection back as lines', function (): void {

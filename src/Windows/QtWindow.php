@@ -6,6 +6,7 @@ use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
 use Jovian\Toolkits\Qt\Bridge\QtSession;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Primitives\QtPrimitiveFactory;
+use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
 use QMainWindow;
@@ -91,19 +92,24 @@ class QtWindow implements ToolkitWindow
         $self = WeakReference::create($this);
 
         // A burst of resizes within one pump is one WindowResized, with the last size.
-        $this->resize_filter = new QEventFilter(static function (QObject $watched, EventType|int $type) use ($self): bool {
-            $self->get()?->resized();
+        $this->resize_filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
+            if ($event->type() === EventType::RESIZE) {
+                $self->get()?->resized();
+            }
 
             return false;
-        }, [EventType::RESIZE]);
+        });
         $this->central->installEventFilter($this->resize_filter);
 
         // false passes every event on: QMainWindow accepts the close, so the mail goes first.
-        $this->filter = new QEventFilter(static function (QObject $watched, EventType|int $type) use ($self): bool {
-            $self->get()?->filtered($type);
+        $this->filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
+            $type = $event->type();
+            if ($type === EventType::CLOSE || $type === EventType::WINDOW_ACTIVATE) {
+                $self->get()?->filtered($type);
+            }
 
             return false;
-        }, [EventType::CLOSE, EventType::WINDOW_ACTIVATE]);
+        });
         $this->window->installEventFilter($this->filter);
         // Deleted any other way (a parent, the application going): the same close path.
         QObject::connect($this->window, 'destroyed(QObject*)', fn () => $this->closed());
@@ -234,8 +240,9 @@ class QtWindow implements ToolkitWindow
     public function size(): array
     {
         $this->live();
+        $size = $this->central->size();
 
-        return $this->central->size();
+        return [$size->width(), $size->height()];
     }
 
     public function factory(): QtPrimitiveFactory
@@ -307,7 +314,8 @@ class QtWindow implements ToolkitWindow
 
     protected function resized(): void
     {
-        [$width, $height] = $this->central->size();
+        $size = $this->central->size();
+        [$width, $height] = [$size->width(), $size->height()];
         $this->session->postLatest("window.resized.{$this->name}", new WindowResized($this->name, $width, $height));
     }
 

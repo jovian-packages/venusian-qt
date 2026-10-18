@@ -67,7 +67,9 @@ class QtSession extends BridgedToolkitSession
      */
     protected function initializeEngine(): void
     {
-        $this->application = new QApplication([$_SERVER['argv'][0] ?? PHP_BINARY]);
+        QtCanvas::shareGLContexts();
+        $argc = 1;
+        $this->application = new QApplication($argc, [$_SERVER['argv'][0] ?? PHP_BINARY]);
         QCoreApplication::setApplicationName($this->application_name);
         QGuiApplication::setDesktopFileName($this->desktop_file_name);
 

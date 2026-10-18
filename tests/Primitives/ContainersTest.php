@@ -67,7 +67,7 @@ it('reorders children and drops a removed one from the layout and the lookups', 
     expect([$layout->indexOf($c->native()), $layout->indexOf($a->native()), $layout->indexOf($b->native())])->toBe([0, 1, 2]);
 
     $a->moveTo(2);
-    expect($layout->itemAtWidget(2))->toBe($a->native());
+    expect($layout->itemAt(2)?->widget())->toBe($a->native());
 
     $native = $b->native();
     $b->remove();
@@ -75,7 +75,7 @@ it('reorders children and drops a removed one from the layout and the lookups', 
 
     // Two children and the stack's trailing stretch spacer.
     expect($layout->count())->toBe(3)
-        ->and($layout->itemAtWidget(2))->toBeNull()
+        ->and($layout->itemAt(2)?->widget())->toBeNull()
         ->and($main->children())->toBe([$c, $a])
         ->and($window->view('m.b'))->toBeNull()
         ->and($window->uuid($b->uuid()))->toBeNull()
@@ -96,12 +96,12 @@ it('fills grid cells and absolute frames', function (): void {
     expect($grid)->toBeInstanceOf(QtGrid::class)
         ->and($fixed)->toBeInstanceOf(QtFixed::class)
         ->and($layout)->toBeInstanceOf(QGridLayout::class)
-        ->and($layout->itemAtPosition(0, 0))->toBe($a->native())
-        ->and($layout->itemAtPosition(0, 1))->toBe($a->native())
-        ->and($layout->itemAtPosition(1, 1))->toBe($b->native())
+        ->and($layout->itemAtPosition(0, 0)?->widget())->toBe($a->native())
+        ->and($layout->itemAtPosition(0, 1)?->widget())->toBe($a->native())
+        ->and($layout->itemAtPosition(1, 1)?->widget())->toBe($b->native())
         ->and($fixed->native()->layout())->toBeNull()
         ->and($c->native()->parentWidget())->toBe($fixed->native())
-        ->and($c->native()->geometry())->toBe(['x' => 10, 'y' => 20, 'width' => 30, 'height' => 40])
+        ->and([$c->native()->geometry()->x(), $c->native()->geometry()->y(), $c->native()->geometry()->width(), $c->native()->geometry()->height()])->toBe([10, 20, 30, 40])
         ->and($c->native()->isVisible())->toBeTrue()
         ->and($c->size())->toBe([30, 40]);
 
@@ -110,10 +110,10 @@ it('fills grid cells and absolute frames', function (): void {
     $b->align(Align::END, Align::END);
     pumpFor(0.1);
 
-    expect($c->native()->pos())->toBe([15, 25])
+    expect(xy($c->native()->pos()))->toBe([15, 25])
         ->and($c->size())->toBe([50, 60])
         ->and($late->native()->isVisible())->toBeTrue()
-        ->and($layout->itemAtPosition(1, 1))->toBe($b->native())
+        ->and($layout->itemAtPosition(1, 1)?->widget())->toBe($b->native())
         ->and($b->size())->toBe([10, 10]);
 });
 
@@ -227,10 +227,10 @@ it('gives spare space only to children that fill, along the stack', function ():
     $button = $main->button('b', 'B');
     $window->present();
     pumpFor(0.2);
-    $hint = $label->native()->sizeHint()[1];
+    $hint = $label->native()->sizeHint()->height();
 
     expect($label->size()[1])->toBe($hint)
-        ->and($button->native()->pos()[1])->toBeLessThan(100);
+        ->and($button->native()->pos()->y())->toBeLessThan(100);
 
     $label->fill();
     pumpFor(0.1);
@@ -246,13 +246,13 @@ it('gives spare space only to children that fill, along the stack', function ():
     $b = $row->label('b', 'B');
     $b->moveBefore($a);
     pumpFor(0.1);
-    expect($a->size()[0])->toBe($a->native()->sizeHint()[0])
+    expect($a->size()[0])->toBe($a->native()->sizeHint()->width())
         ->and($row->native()->layout()->indexOf($b->native()))->toBe(0);
 
     $a->fill(true, false);
     pumpFor(0.1);
     expect($a->size()[0])->toBeGreaterThan(200)
-        ->and($b->size()[0])->toBe($b->native()->sizeHint()[0]);
+        ->and($b->size()[0])->toBe($b->native()->sizeHint()->width());
 });
 
 it('gives spare grid space only to the rows and columns of children that fill', function (): void {
@@ -263,14 +263,14 @@ it('gives spare grid space only to the rows and columns of children that fill', 
     $window->present();
     pumpFor(0.2);
 
-    expect($a->size())->toBe($a->native()->sizeHint())
-        ->and($b->size())->toBe($b->native()->sizeHint());
+    expect($a->size())->toBe(wh($a->native()->sizeHint()))
+        ->and($b->size())->toBe(wh($b->native()->sizeHint()));
 
     $a->fill();
     pumpFor(0.1);
     expect($a->size()[0])->toBeGreaterThan(300)
         ->and($a->size()[1])->toBeGreaterThan(200)
-        ->and($b->size())->toBe($b->native()->sizeHint())
+        ->and($b->size())->toBe(wh($b->native()->sizeHint()))
         ->and($grid->native()->layout()->rowStretch(0))->toBe(1)
         ->and($grid->native()->layout()->columnStretch(1))->toBe(0);
 });

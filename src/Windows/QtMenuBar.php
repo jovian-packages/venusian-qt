@@ -6,6 +6,8 @@ use Jovian\Toolkits\Qt\Bridge\QtSession;
 use QAction;
 use QAction\MenuRole as QtMenuRole;
 use QApplication;
+use QKeySequence;
+use QKeySequence\SequenceFormat;
 use QLineEdit;
 use QMenu;
 use QMenuBar;
@@ -121,7 +123,7 @@ class QtMenuBar
 
             if (! is_null($item->hotkey)) {
                 // Qt's Ctrl is Command on macOS.
-                $action->setShortcut('Ctrl+'.strtoupper($item->hotkey));
+                $action->setShortcut(new QKeySequence('Ctrl+'.strtoupper($item->hotkey), SequenceFormat::PORTABLE_TEXT));
             }
 
             if ($item->toggle) {

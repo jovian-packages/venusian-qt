@@ -31,18 +31,18 @@ function canvasShownAt(QtWindow $window, QWidget $widget, float $x, float $y): a
         throw new RuntimeException("Window '{$window->name()}' did not become active.");
     }
     pumpFor(0.2);
-    [$ox, $oy] = $widget->mapFromGlobal(0.0, 0.0);
+    $origin = $widget->mapFromGlobal(new QPointF(0.0, 0.0));
 
-    return [$x - $ox, $y - $oy];
+    return [$x - $origin->x(), $y - $origin->y()];
 }
 
 /** Send a mouse event of $type at the global point ($gx, $gy) to the widget under it, as Qt delivers one ($widget names where the test aims). */
 function mouse(QWidget $widget, Type $type, float $x, float $y, float $gx, float $gy, int $modifiers = 0, int $timestamp = 0): void
 {
     $under = QApplication::widgetAt((int) round($gx), (int) round($gy)) ?? $widget;
-    [$lx, $ly] = $under->mapFromGlobal($gx, $gy);
+    $local = $under->mapFromGlobal(new QPointF($gx, $gy));
     $down = $type === Type::MOUSE_BUTTON_PRESS || $type === Type::MOUSE_MOVE ? 1 : 0;
-    $event = new QMouseEvent($type, $lx, $ly, $gx, $gy, $type === Type::MOUSE_MOVE ? 0 : 1, $down, $modifiers);
+    $event = new QMouseEvent($type, $local, new QPointF($gx, $gy), $type === Type::MOUSE_MOVE ? 0 : 1, $down, $modifiers, QPointingDevice::primaryPointingDevice());
     $event->setTimestamp($timestamp);
     QCoreApplication::sendEvent($under, $event);
 }

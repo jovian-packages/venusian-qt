@@ -7,6 +7,7 @@ use Jovian\Toolkits\Qt\Bridge\QtSession;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtContainer;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Windows\QtWindow;
+use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
 use QObject;
@@ -190,12 +191,14 @@ trait QtPrimitive
         $key = "view.resized.{$this->window->name()}.{$this->path()}";
 
         if ($on) {
-            $this->size_filter = new QEventFilter(function (QObject $watched, EventType|int $type) use ($key): bool {
-                [$width, $height] = $this->native->size();
-                $this->session()->postLatest($key, new ViewResized($this->window->name(), $this->path(), $this->uuid, $width, $height));
+            $this->size_filter = new QEventFilter(function (QObject $watched, QEvent $event) use ($key): bool {
+                if ($event->type() === EventType::RESIZE) {
+                    [$width, $height] = $this->nativeSize();
+                    $this->session()->postLatest($key, new ViewResized($this->window->name(), $this->path(), $this->uuid, $width, $height));
+                }
 
                 return false;
-            }, [EventType::RESIZE]);
+            });
             $this->native->installEventFilter($this->size_filter);
 
             return;
@@ -246,7 +249,9 @@ trait QtPrimitive
 
     protected function nativeSize(): array
     {
-        return $this->native->size();
+        $size = $this->native->size();
+
+        return [$size->width(), $size->height()];
     }
 
     /**

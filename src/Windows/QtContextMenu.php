@@ -6,6 +6,7 @@ use Jovian\Toolkits\Qt\Bridge\QtSession;
 use QAction;
 use QMenu;
 use QObject;
+use QPoint;
 use Surface\Contracts\Windows\Mail\MenuActivated;
 use Surface\Contracts\Windows\WindowException;
 use Surface\Windows\Menus\ContextMenu;
@@ -44,7 +45,7 @@ final class QtContextMenu
 
     public function popupAt(float $gx, float $gy): void
     {
-        $this->menu->popup((int) round($gx), (int) round($gy));
+        $this->menu->popup(new QPoint((int) round($gx), (int) round($gy)));
     }
 
     /** @param list<MenuItem> $items */

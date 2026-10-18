@@ -9,6 +9,7 @@ use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use NSLayoutConstraint;
 use NSView;
+use QByteArray;
 use QCoreApplication;
 use QEventLoop\ProcessEventsFlag;
 use QGridLayout;
@@ -22,6 +23,7 @@ use QSurfaceFormat;
 use QSurfaceFormat\OpenGLContextProfile;
 use QSurfaceFormat\RenderableType;
 use QSurface\SurfaceType;
+use Qt\ApplicationAttribute;
 use QVulkanInstance;
 use QWidget;
 use QWindow;
@@ -169,11 +171,17 @@ class QtCanvas extends TKCanvas implements QtNative
         return $this->native->devicePixelRatioF();
     }
 
+    /**
+     * The image borrows the byte array's copy of the pixels; fromImage() copies them into the
+     * pixmap while the array is still alive.
+     */
     protected function applyPixels(string $rgba8, int $width, int $height, array $damage): void
     {
-        $this->label->setPixmap(QPixmap::fromImage(new QImage($rgba8, $width, $height, $width * 4, Format::RGBX8888)));
+        $bytes = new QByteArray($rgba8, strlen($rgba8));
+        $this->label->setPixmap(QPixmap::fromImage(new QImage($bytes->pointer(), $width, $height, $width * 4, Format::RGBX8888)));
     }
 
+    /** The image borrows the buffer at $address; fromImage() copies it into the pixmap. */
     protected function applyAddress(int $address, int $width, int $height, int $stride, array $damage): void
     {
         $this->label->setPixmap(QPixmap::fromImage(new QImage($address, $width, $height, $stride, Format::RGBX8888)));
@@ -313,6 +321,22 @@ class QtCanvas extends TKCanvas implements QtNative
     }
 
     /**
+     * Before the application exists, where GL views can be lent: the context format becomes Qt's
+     * default and contexts are shared, so the window's compositor makes its context in the same
+     * format as the GL view's and shares with it. Unshared (macOS refuses to share a 4.1 core
+     * context with a legacy one), the compositor samples a texture name the GL view's context
+     * never made and the view shows the wrong image.
+     */
+    public static function shareGLContexts(): void
+    {
+        if (! self::hasOpenGL(self::upcomingPlatform())) {
+            return;
+        }
+        QSurfaceFormat::setDefaultFormat(self::glFormat());
+        QCoreApplication::setAttribute(ApplicationAttribute::SHARE_OPEN_GL_CONTEXTS);
+    }
+
+    /**
      * The context the opengl engine draws in: OpenGL 4.1 core on macOS (Qt's default there is a
      * legacy 2.1 context), OpenGL ES 3 elsewhere (the Pi's default desktop context is GL 3.1,
      * GLSL 1.40).
@@ -416,7 +440,7 @@ class QtCanvas extends TKCanvas implements QtNative
      * macOS, Qt's GL is EGL too (Wayland, eglfs, or xcb with QT_XCB_GL_INTEGRATION=xcb_egl). On
      * X11 Qt uses GLX by default, whose context ext-opengl cannot read.
      */
-    private static function hasOpenGL(): bool
+    private static function hasOpenGL(?string $platform = null): bool
     {
         if (PHP_OS_FAMILY === 'Darwin') {
             return function_exists('CGLGetCurrentContext');
@@ -424,10 +448,28 @@ class QtCanvas extends TKCanvas implements QtNative
         if (! function_exists('eglGetCurrentContext')) {
             return false;
         }
-        $platform = \QGuiApplication::platformName();
+        $platform ??= \QGuiApplication::platformName();
 
         return str_starts_with($platform, 'wayland') || $platform === 'eglfs'
             || ($platform === 'xcb' && getenv('QT_XCB_GL_INTEGRATION') === 'xcb_egl');
+    }
+
+    /**
+     * The platform Qt will load, before the application exists to say (QGuiApplication's own
+     * order, the same from Qt 6.4 to 6.11): QT_QPA_PLATFORM, else Wayland in a Wayland session,
+     * else xcb with an X display.
+     */
+    private static function upcomingPlatform(): string
+    {
+        $chosen = (string) getenv('QT_QPA_PLATFORM');
+        if ($chosen !== '') {
+            return explode(':', explode(';', $chosen)[0])[0];
+        }
+        if (getenv('WAYLAND_DISPLAY') !== false || getenv('XDG_SESSION_TYPE') === 'wayland') {
+            return 'wayland';
+        }
+
+        return getenv('DISPLAY') !== false ? 'xcb' : '';
     }
 
     /**

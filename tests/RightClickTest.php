@@ -34,9 +34,9 @@ function shownAt(QtWindow $window, QWidget $widget, float $x, float $y): array
         throw new RuntimeException("Window '{$window->name()}' did not become active.");
     }
     pumpFor(0.2);
-    [$ox, $oy] = $widget->mapFromGlobal(0.0, 0.0);
+    $origin = $widget->mapFromGlobal(new QPointF(0.0, 0.0));
 
-    return [$x - $ox, $y - $oy];
+    return [$x - $origin->x(), $y - $origin->y()];
 }
 
 /** @return list<object> the right-click mail posted since the last read */
@@ -47,7 +47,13 @@ function qtRightClickMail(): array
 
 function contextMenu(QWidget $widget, int $x, int $y, int $gx, int $gy, Reason $reason = Reason::MOUSE): void
 {
-    QCoreApplication::sendEvent($widget, new QContextMenuEvent($reason, $x, $y, $gx, $gy));
+    QCoreApplication::sendEvent($widget, new QContextMenuEvent($reason, new QPoint($x, $y), new QPoint($gx, $gy)));
+}
+
+/** A primary-button mouse event of $type at the local and global points, from the primary pointing device. */
+function qtMouse(Type $type, float $x, float $y, float $gx, float $gy, int $button, int $buttons): QMouseEvent
+{
+    return new QMouseEvent($type, new QPointF($x, $y), new QPointF($gx, $gy), $button, $buttons, 0, QPointingDevice::primaryPointingDevice());
 }
 
 it('posts view.right-clicked for the innermost primitive Qt raises a context menu on, in its own coordinates', function (): void {
@@ -102,7 +108,7 @@ it('posts for a primary press held still past the hold interval, not for one let
     [$gx, $gy] = shownAt($window, $go->native(), 4.0, 5.0);
     $hold = QGuiApplication::styleHints()->mousePressAndHoldInterval() / 1000;
     $drag = QGuiApplication::styleHints()->startDragDistance();
-    $press = fn (Type $type, float $dx = 0.0) => QCoreApplication::sendEvent($go->native(), new QMouseEvent($type, 4.0 + $dx, 5.0, $gx + $dx, $gy, $type === Type::MOUSE_BUTTON_RELEASE ? 1 : ($type === Type::MOUSE_MOVE ? 0 : 1), $type === Type::MOUSE_BUTTON_RELEASE ? 0 : 1));
+    $press = fn (Type $type, float $dx = 0.0) => QCoreApplication::sendEvent($go->native(), qtMouse($type, 4.0 + $dx, 5.0, $gx + $dx, $gy, $type === Type::MOUSE_BUTTON_RELEASE ? 1 : ($type === Type::MOUSE_MOVE ? 0 : 1), $type === Type::MOUSE_BUTTON_RELEASE ? 0 : 1));
     takeMail(session());
 
     // Let go before the hold time: released at once, as a wait for half of it can overrun on a loaded machine.
@@ -154,7 +160,7 @@ it('opens a primitive\'s context menu at the click, after its mail, keeps the wi
     [$gx, $gy] = shownAt($window, $name->native(), 4.0, 5.0);
     takeMail(session());
 
-    $swallowed = QCoreApplication::sendEvent($name->native(), new QContextMenuEvent(Reason::MOUSE, 4, 5, (int) round($gx), (int) round($gy)));
+    $swallowed = QCoreApplication::sendEvent($name->native(), new QContextMenuEvent(Reason::MOUSE, new QPoint(4, 5), new QPoint((int) round($gx), (int) round($gy))));
     $menu = $window->rightClicks()->openMenu();
     $shown = $menu->menu()->isVisible();
     $clicked = qtContextMail();
@@ -192,13 +198,13 @@ it('opens the menu for a primary press held still', function (): void {
     [$gx, $gy] = shownAt($window, $go->native(), 4.0, 5.0);
     $window->rightClicks()->holdOnPress(true);
     takeMail(session());
-    QCoreApplication::sendEvent($go->native(), new QMouseEvent(Type::MOUSE_BUTTON_PRESS, 4.0, 5.0, $gx, $gy, 1, 1));
+    QCoreApplication::sendEvent($go->native(), qtMouse(Type::MOUSE_BUTTON_PRESS, 4.0, 5.0, $gx, $gy, 1, 1));
     $opened = false;
     for ($until = microtime(true) + QGuiApplication::styleHints()->mousePressAndHoldInterval() / 1000 * 4; ! $opened && microtime(true) < $until;) {
         pumpFor(0.05);
         $opened = $window->rightClicks()->openMenu()?->menu()->isVisible() ?? false;
     }
-    QCoreApplication::sendEvent($go->native(), new QMouseEvent(Type::MOUSE_BUTTON_RELEASE, 4.0, 5.0, $gx, $gy, 1, 0));
+    QCoreApplication::sendEvent($go->native(), qtMouse(Type::MOUSE_BUTTON_RELEASE, 4.0, 5.0, $gx, $gy, 1, 0));
     $window->rightClicks()->openMenu()?->menu()->hide();
 
     expect($opened)->toBeTrue()

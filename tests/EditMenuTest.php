@@ -14,10 +14,10 @@ beforeEach(function (): void {
 it('gives edit items no shortcut and no Qt menu role: the text widgets keep their own keys', function (): void {
     $bar = driver()->open('main', 320, 200, driver()->profile('editing'))->menuBar();
 
-    expect($bar->action('edit.copy')->shortcut())->toBe('')
-        ->and($bar->action('edit.select-all')->shortcut())->toBe('')
+    expect($bar->action('edit.copy')->shortcut()->isEmpty())->toBeTrue()
+        ->and($bar->action('edit.select-all')->shortcut()->isEmpty())->toBeTrue()
         ->and($bar->action('edit.copy')->menuRole())->toBe(QAction\MenuRole::NO_ROLE)
-        ->and($bar->action('app.quit')->shortcut())->toBe('Ctrl+Q');
+        ->and($bar->action('app.quit')->shortcut()->toString())->toBe('Ctrl+Q');
 });
 
 it('runs an edit role on a focused line edit or plain text edit, and on nothing else', function (): void {

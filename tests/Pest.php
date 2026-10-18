@@ -126,6 +126,18 @@ function pumpFor(float $seconds): void
     }
 }
 
+/** @return array{int, int} a Qt size as [width, height] */
+function wh(QSize $size): array
+{
+    return [$size->width(), $size->height()];
+}
+
+/** @return array{int, int} a Qt point as [x, y] */
+function xy(QPoint $point): array
+{
+    return [$point->x(), $point->y()];
+}
+
 /**
  * Pump until $area's layout has settled: its widget is visible and its scroll bars read the same
  * value, maximum and page step on two pumps in a row; say whether that happened within $seconds.
