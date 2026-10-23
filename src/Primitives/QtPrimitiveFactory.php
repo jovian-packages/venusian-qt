@@ -24,11 +24,14 @@ use Surface\Contracts\Windows\Primitives\TKScrollView;
 use Surface\Contracts\Windows\Primitives\TKSeparator;
 use Surface\Contracts\Windows\Primitives\TKSlider;
 use Surface\Contracts\Windows\Primitives\TKSpinner;
+use Surface\Contracts\Windows\Primitives\TKSplitView;
+use Surface\Contracts\Windows\Primitives\TKTabView;
 use Surface\Contracts\Windows\Primitives\TKTable;
 use Surface\Contracts\Windows\Primitives\TKTextArea;
 use Surface\Contracts\Windows\Primitives\TKTextInput;
 use Surface\Contracts\Windows\Primitives\TKToggle;
 use Surface\Contracts\Windows\Primitives\TKToggleButton;
+use Surface\Contracts\Windows\Primitives\TKTree;
 use Surface\Contracts\Windows\Primitives\TKVideo;
 use Surface\Contracts\Windows\WindowException;
 
@@ -128,6 +131,11 @@ class QtPrimitiveFactory implements PrimitiveFactory
         return new QtTable($name, $this->window, $host, $this->placement($host), $columns, $rows);
     }
 
+    public function mintTree(TKPrimitiveGroup $host, string $name, array $columns, array $nodes): TKTree
+    {
+        return new QtTree($name, $this->window, $host, $this->placement($host), $columns, $nodes);
+    }
+
     public function mintVideo(TKPrimitiveGroup $host, string $name, ?string $file): TKVideo
     {
         return new QtVideo($name, $this->window, $host, $this->placement($host), $file);
@@ -156,6 +164,16 @@ class QtPrimitiveFactory implements PrimitiveFactory
     public function mintScrollView(TKPrimitiveGroup $host, string $name): TKScrollView
     {
         return new QtScrollView($name, $this->window, $host, $this->placement($host));
+    }
+
+    public function mintSplit(TKPrimitiveGroup $host, string $name, bool $horizontal): TKSplitView
+    {
+        return new QtSplitView($name, $this->window, $host, $this->placement($host), $horizontal);
+    }
+
+    public function mintTabs(TKPrimitiveGroup $host, string $name): TKTabView
+    {
+        return new QtTabView($name, $this->window, $host, $this->placement($host));
     }
 
     /**

@@ -11,6 +11,7 @@ use NSLayoutConstraint;
 use NSView;
 use QByteArray;
 use QCoreApplication;
+use QEventFilter;
 use QEventLoop\ProcessEventsFlag;
 use QGridLayout;
 use QImage;
@@ -138,6 +139,32 @@ class QtCanvas extends TKCanvas implements QtNative
         return $this->native;
     }
 
+    /** Keeps Tab and Shift-Tab on the host while the canvas takes them; made on the first applyFocusable(). */
+    private ?QEventFilter $tab_filter = null;
+
+    /**
+     * The host's focus policy: StrongFocus (click and Tab) or NoFocus. A filter on the host, which
+     * runs before QWidget::event moves focus on Tab, eats Tab and Backtab while takesTab() holds.
+     */
+    protected function applyFocusable(bool $on, bool $takesTab): void
+    {
+        $this->native->setFocusPolicy($on ? \Qt\FocusPolicy::STRONG_FOCUS : \Qt\FocusPolicy::NO_FOCUS);
+        // NoFocus leaves a focused widget focused: a canvas that stops taking focus lets go, quietly.
+        if (! $on) {
+            $this->whileHoldingFocus(fn () => $this->native->clearFocus());
+        }
+        if (! is_null($this->tab_filter)) {
+            return;
+        }
+        // The filter holds this canvas weakly: a strong capture would be a cycle through the C++ filter.
+        $self = \WeakReference::create($this);
+        $this->tab_filter = new QEventFilter(static fn (\QObject $watched, \QEvent $event): bool => $event->type() === \QEvent\Type::KEY_PRESS
+            && $event instanceof \QKeyEvent
+            && in_array($event->key(), [\Qt\Key::TAB->value, \Qt\Key::BACKTAB->value], true)
+            && ($self->get()?->takesTab() ?? false));
+        $this->native->installEventFilter($this->tab_filter);
+    }
+
     /**
      * The label showing the framebuffer.
      * @return QLabel
@@ -145,6 +172,12 @@ class QtCanvas extends TKCanvas implements QtNative
     public function label(): QLabel
     {
         return $this->label;
+    }
+
+    /** The QWindow standing in for the label while a Metal layer or a Vulkan surface is lent: its events never enter the widget tree. */
+    public function lentWindow(): ?QWindow
+    {
+        return $this->metal_window ?? $this->vulkan_window;
     }
 
     /** The Vulkan window standing in for the label while a Vulkan surface is lent. */

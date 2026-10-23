@@ -3,15 +3,23 @@
 namespace Jovian\Toolkits\Qt\Bridge;
 
 use Jovian\Toolkits\Qt\Contracts\Bridge\QtBridgeDriver as BridgeContract;
+use Jovian\Toolkits\Qt\Services\QtClipboard;
+use Jovian\Toolkits\Qt\Services\QtDesktop;
+use Jovian\Toolkits\Qt\Services\QtDialogs;
+use Jovian\Toolkits\Qt\Windows\QtButtonKeys;
 use Jovian\Toolkits\Qt\Windows\QtMenuBar;
+use Jovian\Toolkits\Qt\Windows\QtMenuKeys;
 use Jovian\Toolkits\Qt\Windows\QtWindow;
 use QMenuBar;
 use Surface\Bridge\ToolkitBridgeDriver;
 use Surface\Contracts\Bridge\BridgeException;
 use Surface\Contracts\Windows\Menus\MenuProfile as MenuProfileContract;
+use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\Contracts\Windows\ToolkitWindowDriver;
 use Surface\Contracts\Windows\WindowException;
+use Surface\Windows\ChildWindows;
 use Surface\Windows\Menus\MenuProfile;
+use Surface\Windows\Menus\MenuStates;
 
 class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, ToolkitWindowDriver
 {
@@ -29,6 +37,28 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
 
     protected ?QtMenuBar $default_bar = null;
 
+    /** The states of the default profile's nodes, on every platform. */
+    protected ?MenuStates $default_states = null;
+
+    protected ?QtDialogs $dialogs = null;
+
+    protected ?QtClipboard $clipboard = null;
+
+    protected ?QtDesktop $desktop = null;
+
+    /** Gives keys to menu shortcuts before a focused text widget; made on the first connect. */
+    protected ?QtMenuKeys $menu_keys = null;
+
+    /** Gives Return, Enter and Esc to the windows' default and cancel buttons; made on the first connect. */
+    protected ?QtButtonKeys $button_keys = null;
+
+    /**
+     * macOS, with no default profile: an empty bar with no parent. Qt shows the bar with no parent
+     * for a focused window without its own, such as a child; with none it keeps the last bar, and
+     * the parent's items stay enabled under its child (probe 2026-10-20).
+     */
+    protected ?QMenuBar $empty_bar = null;
+
     public function connect(): QtSession
     {
         $this->session ??= new QtSession(
@@ -36,7 +66,73 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
             $this->applicationId(),
         );
 
-        return $this->session->connect();
+        $session = $this->session->connect();
+        $this->menu_keys ??= new QtMenuKeys();
+        $this->button_keys ??= new QtButtonKeys($this);
+        $this->keepGlobalBar();
+
+        return $session;
+    }
+
+    /** The application filter that gives Return, Enter and Esc to the role holders. */
+    public function buttonKeys(): QtButtonKeys
+    {
+        $this->connect();
+
+        return $this->button_keys;
+    }
+
+    /**
+     * The bar with no parent that Qt shows for a window without its own (macOS): the default bar,
+     * or the empty bar when no default profile is set. Null elsewhere.
+     */
+    public function globalMenuBar(): ?QMenuBar
+    {
+        return $this->default_bar?->bar() ?? $this->empty_bar;
+    }
+
+    /** macOS: an empty bar with no parent exactly while there is no default bar. */
+    protected function keepGlobalBar(): void
+    {
+        if (! self::appWideBar() || is_null($this->session)) {
+            return;
+        }
+        if (is_null($this->default_bar)) {
+            $this->empty_bar ??= new QMenuBar();
+        } elseif (! is_null($this->empty_bar)) {
+            $this->empty_bar->deleteLater();
+            $this->empty_bar = null;
+        }
+    }
+
+    /** The application filter that gives keys to menu shortcuts first. */
+    public function menuKeys(): QtMenuKeys
+    {
+        $this->connect();
+
+        return $this->menu_keys;
+    }
+
+    /**
+     * Set the state of a node of the default profile, on every platform; it shows where a default
+     * bar shows (macOS). Posts nothing.
+     * @throws WindowException
+     */
+    public function setItemEnabled(string $item, bool $enabled): void
+    {
+        $this->defaultStates()->set($item, $enabled);
+        $this->default_bar?->setItemEnabled($item, $enabled);
+    }
+
+    /** @throws WindowException */
+    public function isItemEnabled(string $item): bool
+    {
+        return $this->defaultStates()->isEnabled($item);
+    }
+
+    protected function defaultStates(): MenuStates
+    {
+        return $this->default_states ?? throw new WindowException('No default menu bar profile is set.');
     }
 
     /** The desktop identity: config/app.php app.id, the name a packaged build's .desktop file carries. */
@@ -51,13 +147,37 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
         return $id;
     }
 
-    public function open(string $name, int $width, int $height, ?MenuProfileContract $menu = null): QtWindow
+    /** With a parent, the window is window-modal to it: a sheet on macOS, a dialog elsewhere. */
+    public function open(string $name, int $width, int $height, ?MenuProfileContract $menu = null, ?ToolkitWindow $parent = null): QtWindow
     {
         if (isset($this->windows[$name])) {
             throw new WindowException("A window named '{$name}' is already open.");
         }
+        if (! is_null($parent)) {
+            ChildWindows::check($this, $parent, $menu);
+            $this->dialogs()->refuseChild($parent);
+        }
 
-        return $this->windows[$name] = new QtWindow($name, $this->connect(), $this, $width, $height, $this->concrete($menu));
+        return $this->windows[$name] = new QtWindow($name, $this->connect(), $this, $width, $height, $this->concrete($menu), $parent);
+    }
+
+    /** Message boxes and file dialogs, window-modal to their parent. */
+    public function dialogs(): QtDialogs
+    {
+        return $this->dialogs ??= new QtDialogs($this, $this->connect());
+    }
+
+    /** The application's clipboard; the session makes the application first. */
+    public function clipboard(): QtClipboard
+    {
+        $this->connect();
+
+        return $this->clipboard ??= new QtClipboard();
+    }
+
+    public function desktop(): QtDesktop
+    {
+        return $this->desktop ??= new QtDesktop();
     }
 
     public function has(string $name): bool
@@ -100,17 +220,17 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
         }
 
         $this->default_menu = $menu;
+        $this->default_states = is_null($menu) ? null : new MenuStates($menu);
 
         if (! is_null($this->default_bar)) {
             $this->default_bar->bar()->deleteLater();
             $this->default_bar = null;
         }
 
-        if (! self::appWideBar() || is_null($this->default_menu)) {
-            return;
+        if (self::appWideBar() && ! is_null($this->default_menu)) {
+            $this->default_bar = new QtMenuBar($this->connect(), $this->default_menu, new QMenuBar(), null, $this->about(), null);
         }
-
-        $this->default_bar = new QtMenuBar($this->connect(), $this->default_menu, new QMenuBar(), null, $this->about(), null);
+        $this->keepGlobalBar();
     }
 
     /**

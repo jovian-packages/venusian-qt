@@ -19,8 +19,10 @@ use Surface\Contracts\Windows\Mail\MenuToggled;
 use Surface\Contracts\Windows\Mail\QuitRequested;
 use Surface\Contracts\Windows\Menus\MenuRole;
 use Surface\Contracts\Windows\WindowException;
+use Surface\Windows\Menus\Accelerator;
 use Surface\Windows\Menus\MenuItem;
 use Surface\Windows\Menus\MenuProfile;
+use Surface\Windows\Menus\MenuStates;
 
 /**
  * A menu profile built once into a QMenuBar: folders become menus, items QActions whose
@@ -32,7 +34,7 @@ use Surface\Windows\Menus\MenuProfile;
 class QtMenuBar
 {
     /**
-     * Item actions by profile id.
+     * Node actions by profile id (a folder's: its menu's menuAction()).
      * @var array<string, QAction>
      */
     protected array $actions = [];
@@ -42,6 +44,9 @@ class QtMenuBar
      * @var array<string, QAction>
      */
     protected array $toggles = [];
+
+    /** The own and effective state of each node. */
+    protected readonly MenuStates $states;
 
     /**
      * @param QtSession $session
@@ -59,9 +64,57 @@ class QtMenuBar
         protected readonly array $about,
         protected readonly ?QWidget $parent,
     ) {
+        $this->states = new MenuStates($profile);
         foreach ($profile->folders as $folder) {
-            $this->fill($bar->addMenu($folder->label), $folder);
+            $menu = $bar->addMenu($folder->label);
+            $this->actions[$folder->id] = $menu->menuAction();
+            $this->fill($menu, $folder);
         }
+        foreach (array_keys($profile->nodes()) as $id) {
+            $this->action($id)->setEnabled($this->states->effective($id));
+        }
+    }
+
+    /** The Qt name of each accelerator key that is not its own character or upper-case letter. */
+    public const array QT_NAMES = [
+        'up' => 'Up', 'down' => 'Down', 'left' => 'Left', 'right' => 'Right', 'home' => 'Home', 'end' => 'End',
+        'page_up' => 'PgUp', 'page_down' => 'PgDown',
+        'space' => 'Space', 'enter' => 'Return', 'tab' => 'Tab', 'escape' => 'Esc', 'backspace' => 'Backspace', 'delete' => 'Del',
+    ];
+
+    /**
+     * The shortcut as Qt's portable text, in Qt's own modifier order. On macOS Qt's Ctrl is Command
+     * and Qt's Meta is Control.
+     */
+    public static function shortcut(Accelerator $keys, bool $macos = PHP_OS_FAMILY === 'Darwin'): string
+    {
+        $value = $keys->key->value;
+        $key = self::QT_NAMES[$value] ?? match (true) {
+            str_starts_with($value, 'f') && strlen($value) > 1 => strtoupper($value),
+            default => strtoupper((string) array_search($keys->key, Accelerator::CHARACTERS, true)),
+        };
+        $ctrl = $macos ? $keys->command(true) : $keys->control(false);
+        $meta = $macos ? $keys->control(true) : $keys->super(false);
+
+        return ($meta ? 'Meta+' : '').($ctrl ? 'Ctrl+' : '').($keys->alt ? 'Alt+' : '').($keys->shift ? 'Shift+' : '').$key;
+    }
+
+    /**
+     * Set the state of a node; the node and the nodes below it show their effective state. Posts nothing.
+     * @throws WindowException
+     */
+    public function setItemEnabled(string $item, bool $enabled): void
+    {
+        $this->states->set($item, $enabled);
+        foreach ($this->states->subtree($item) as $id) {
+            $this->action($id)->setEnabled($this->states->effective($id));
+        }
+    }
+
+    /** @throws WindowException */
+    public function isItemEnabled(string $item): bool
+    {
+        return $this->states->isEnabled($item);
     }
 
     public function bar(): QMenuBar
@@ -77,7 +130,7 @@ class QtMenuBar
      */
     public function action(string $id): QAction
     {
-        return $this->actions[$id] ?? throw new WindowException("No item '{$id}' in menu profile '{$this->profile->name}'.");
+        return $this->actions[$id] ?? throw new WindowException("No node '{$id}' in menu profile '{$this->profile->name}'.");
     }
 
     /**
@@ -110,7 +163,9 @@ class QtMenuBar
             }
 
             if ($item->isFolder()) {
-                $this->fill($menu->addMenu($item->label), $item);
+                $sub = $menu->addMenu($item->label);
+                $this->actions[$item->id] = $sub->menuAction();
+                $this->fill($sub, $item);
                 continue;
             }
 
@@ -121,9 +176,8 @@ class QtMenuBar
                 default => QtMenuRole::NO_ROLE,
             });
 
-            if (! is_null($item->hotkey)) {
-                // Qt's Ctrl is Command on macOS.
-                $action->setShortcut(new QKeySequence('Ctrl+'.strtoupper($item->hotkey), SequenceFormat::PORTABLE_TEXT));
+            if (! is_null($item->keys)) {
+                $action->setShortcut(QKeySequence::fromString(self::shortcut($item->keys), SequenceFormat::PORTABLE_TEXT));
             }
 
             if ($item->toggle) {

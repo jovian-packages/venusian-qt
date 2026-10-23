@@ -3,8 +3,6 @@
 namespace Jovian\Toolkits\Qt\Windows;
 
 use Jovian\Toolkits\Qt\Bridge\QtSession;
-use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
-use QApplication;
 use QCoreApplication;
 use QEvent;
 use QEvent\Type;
@@ -13,7 +11,6 @@ use QGuiApplication;
 use QMouseEvent;
 use QObject;
 use QPointF;
-use QWidget;
 use Surface\Contracts\Windows\Mail\View\CanvasClicked;
 use Surface\Contracts\Windows\Primitives\TKCanvas;
 use WeakReference;
@@ -21,7 +18,8 @@ use WeakReference;
 /**
  * A toolkit window's canvas clicks as mail. An application filter (mouse events go to the widget
  * under the pointer) sees a left press on a canvas, counted once: only its delivery to the widget
- * under the pointer. Not with Qt's Meta, which is the Control key on macOS (a right click there). The
+ * under the pointer, or to the QWindow a canvas lends to Metal or Vulkan (QtCanvasPointer::canvasOf()
+ * finds the canvas either way). Not with Qt's Meta, which is the Control key on macOS (a right click there). The
  * release over the same canvas posts, unless the pointer moved past startDragDistance() in between or,
  * on Linux, the press was held past mousePressAndHoldInterval() by the events' timestamps (a right
  * click there). The mail
@@ -47,7 +45,7 @@ final class QtCanvasClicks
         // Held weakly, as the window's own filters: a strong capture is a cycle through C++.
         $this->filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
             $type = $event->type();
-            if ($type === Type::MOUSE_BUTTON_PRESS || $type === Type::MOUSE_MOVE || $type === Type::MOUSE_BUTTON_RELEASE) {
+            if ($type === Type::MOUSE_BUTTON_PRESS || $type === Type::MOUSE_BUTTON_DBL_CLICK || $type === Type::MOUSE_MOVE || $type === Type::MOUSE_BUTTON_RELEASE) {
                 $self->get()?->filtered($watched, $type, $event);
             }
 
@@ -85,16 +83,18 @@ final class QtCanvasClicks
 
     private function filtered(QObject $watched, Type|int $type, QEvent $event): void
     {
-        if (! $watched instanceof QWidget || ! $event instanceof QMouseEvent) {
+        if (! $event instanceof QMouseEvent) {
             return;
         }
         $global = $event->globalPosition();
         [$gx, $gy] = [$global->x(), $global->y()];
-        if (QApplication::widgetAt((int) round($gx), (int) round($gy)) !== $watched) {
+        // The widget under the pointer, or a lent QWindow (a Metal or Vulkan canvas), whose events never enter the widget tree.
+        if (! $this->window->canvasPointer()->firstDelivery($watched, $gx, $gy)) {
             return;
         }
 
-        if ($type === Type::MOUSE_BUTTON_PRESS) {
+        // Qt delivers the second press of a double click to a widget as the double click alone.
+        if ($type === Type::MOUSE_BUTTON_PRESS || $type === Type::MOUSE_BUTTON_DBL_CLICK) {
             $this->press = null;
             if (self::primary($event->button(), $event->modifiers())) {
                 $this->pressed($watched, $gx, $gy, $event->timestamp());
@@ -109,9 +109,9 @@ final class QtCanvasClicks
     }
 
     /** $at: the press event's timestamp (ms), which holds are timed by, not the time it is handled. */
-    private function pressed(QWidget $hit, float $gx, float $gy, int $at): void
+    private function pressed(QObject $hit, float $gx, float $gy, int $at): void
     {
-        [$canvas, $native] = $this->canvasOf($hit);
+        [$canvas, $native] = $this->window->canvasPointer()->canvasOf($hit);
         if (! is_null($canvas)) {
             $local = $native->mapFromGlobal(new QPointF($gx, $gy));
             [$x, $y] = [$local->x(), $local->y()];
@@ -119,47 +119,16 @@ final class QtCanvasClicks
         }
     }
 
-    private function released(QWidget $hit, int $at): void
+    private function released(QObject $hit, int $at): void
     {
         $press = $this->press;
         $this->press = null;
         if (is_null($press) || ($this->hold_cancels && $at - $press[5] >= QGuiApplication::styleHints()->mousePressAndHoldInterval())) {
             return;
         }
-        [$canvas] = $this->canvasOf($hit);
+        [$canvas] = $this->window->canvasPointer()->canvasOf($hit);
         if ($canvas === $press[0]) {
             $this->session->post(new CanvasClicked($this->window->name(), $canvas->path(), $canvas->uuid(), $press[3], $press[4]));
         }
-    }
-
-    /**
-     * The enabled canvas of this window holding $hit, and its native: walked up parent widgets to the
-     * first a canvas owns. Null when it or one of its groups is disabled, or no canvas holds it.
-     *
-     * @return array{TKCanvas|null, QWidget|null}
-     */
-    private function canvasOf(QWidget $hit): array
-    {
-        $owners = [];
-        foreach ($this->window->registry()->all() as $primitive) {
-            if ($primitive instanceof TKCanvas && $primitive instanceof QtNative) {
-                $owners[spl_object_id($primitive->native())] = $primitive;
-            }
-        }
-        for ($widget = $hit; ! is_null($widget); $widget = $widget->parentWidget()) {
-            $canvas = $owners[spl_object_id($widget)] ?? null;
-            if (is_null($canvas)) {
-                continue;
-            }
-            for ($at = $canvas; ! is_null($at); $at = $at->parent()) {
-                if (! $at->isEnabled()) {
-                    return [null, null];
-                }
-            }
-
-            return [$canvas, $widget];
-        }
-
-        return [null, null];
     }
 }

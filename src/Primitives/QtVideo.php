@@ -20,6 +20,7 @@ use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\Contracts\Windows\WindowException;
 use Surface\Windows\Primitives\TKPrimitiveGroup;
 use Surface\Windows\Primitives\TKVideo;
+use WeakReference;
 
 /**
  * A QVideoWidget fed by a QMediaPlayer (with a QAudioOutput), both children of the widget.
@@ -59,26 +60,32 @@ class QtVideo extends TKVideo implements QtNative
         $player->setAudioOutput($this->audio);
         $player->setVideoOutput($video);
 
-        QObject::connect($player, 'playbackStateChanged(QMediaPlayer::PlaybackState)', function (): void {
-            if (! $this->removed) {
-                $this->reportPlaying();
+        // The player's slots can outlive the widget while the media backend winds down: they reach
+        // the primitive through a weak reference, so a removed video is freed.
+        $self = WeakReference::create($this);
+        QObject::connect($player, 'playbackStateChanged(QMediaPlayer::PlaybackState)', static function () use ($self): void {
+            $video = $self->get();
+            if (! is_null($video) && ! $video->removed) {
+                $video->reportPlaying();
             }
         });
-        QObject::connect($player, 'mediaStatusChanged(QMediaPlayer::MediaStatus)', function (int $status): void {
-            if ($this->removed) {
+        QObject::connect($player, 'mediaStatusChanged(QMediaPlayer::MediaStatus)', static function (int $status) use ($self): void {
+            $video = $self->get();
+            if (is_null($video) || $video->removed) {
                 return;
             }
-            $this->reportPlaying();
+            $video->reportPlaying();
             if ($status === MediaStatus::END_OF_MEDIA->value) {
-                $this->session()->post(new VideoEnded($this->window->name(), $this->path(), $this->uuid));
+                $video->session()->post(new VideoEnded($video->window->name(), $video->path(), $video->uuid));
             }
         });
-        QObject::connect($player, 'errorOccurred(QMediaPlayer::Error,QString)', function (int $error, string $message): void {
-            if ($this->removed) {
+        QObject::connect($player, 'errorOccurred(QMediaPlayer::Error,QString)', static function (int $error, string $message) use ($self): void {
+            $video = $self->get();
+            if (is_null($video) || $video->removed) {
                 return;
             }
-            $this->reportPlaying();
-            $this->session()->post(new VideoFailed($this->window->name(), $this->path(), $this->uuid, $message !== '' ? $message : "Qt Multimedia error {$error}."));
+            $video->reportPlaying();
+            $video->session()->post(new VideoFailed($video->window->name(), $video->path(), $video->uuid, $message !== '' ? $message : "Qt Multimedia error {$error}."));
         });
 
         $this->applyFile($file);

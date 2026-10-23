@@ -5,7 +5,7 @@ description: Qt concretes of Surface's TK primitives - factory, containers over 
 resource: src/Primitives/
 tags: [qt, primitives, widgets, layout]
 status: draft
-generated: { by: grok/4.7, at: 2026-10-05T01:30:00Z }
+generated: { by: claude/opus-5.5, at: 2026-10-18T20:30:00Z }
 sources:
   - id: trait
     resource: src/Primitives/Concerns/QtPrimitive.php
@@ -55,6 +55,8 @@ Event-filter closures that outlive a call (image resize, window close/activate/r
 | grid | `QWidget` + `QGridLayout` | `addWidget(child, row, column, rowSpan, columnSpan, alignment)`; row/column stretch 1 where a child fills that axis, else an empty spare row/column past the last takes the spare space |
 | fixed | `QWidget`, no layout | `setParent(fixed)` + `setGeometry(frameOf(child))` + `show()` (a child given an already-showing parent stays hidden otherwise); move/resize → `move`/`resize`; minimum = max(`minSize()`, the frames' extent), since a layout-less widget has no size hint to keep it open beside a filling sibling |
 | scroll view | `QScrollArea`, `setWidgetResizable(true)` | `setWidget(child)`; scrollbars → `AS_NEEDED` / `ALWAYS_OFF` |
+| split | `QSplitter`, opaque resize, children not collapsible | `addWidget(child)`; a removed pane leaves with its widget's reparenting; Qt gives a hidden pane size 0 and hides its handle. Positions from `sizes()` + `handleWidth()` over the visible panes; `setSizes` (hidden 0); first `Resize` with a length applies pending or equal shares. SplitMoved: `splitterMoved` marks a drag, a filter on each `handle(i)` (re-installed after each add) notes positions at the press and posts at the release if one moved by more than half a pixel (`moveSplitter` emits `splitterMoved` on every move, changed or not) |
+| tabs | `QTabWidget` | `addTab(page, title)` (`&` doubled); `currentChanged(int)` → TabSelected for user switches; ignored while a page is removed but not yet forgotten (its widget's reparenting drops the tab first) |
 
 [^containers]
 

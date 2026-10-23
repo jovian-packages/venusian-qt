@@ -31,6 +31,9 @@ use WeakReference;
  * a primary press held still past Qt's press-and-hold interval is one too: a touchscreen registered
  * as a pointer (the Pi's) reaches Qt as a left press, and Qt raises no context menu for a long one.
  * An event Qt passes up to parents counts once: only its delivery to the widget under the pointer.
+ * The QWindow a canvas lends to Metal or Vulkan gets its events outside the widget tree; they count
+ * as its canvas's. Qt 6.9+ raises the context-menu request there too; older Qt raises none, so there
+ * the right press is the request.
  * After the mail, the context menu of the primitive or its nearest group that has one opens at the
  * click, and the filter eats the context-menu event, so the widget's own menu (a text input's) stays shut.
  */
@@ -45,6 +48,8 @@ final class QtRightClicks
 
     private bool $hold_on_press = PHP_OS_FAMILY === 'Linux';
 
+    private bool $lent_press_opens;
+
     /** The context menu opened last. */
     private ?QtContextMenu $menu = null;
 
@@ -54,6 +59,7 @@ final class QtRightClicks
         private readonly QWidget $content,
         private readonly QtSession $session,
     ) {
+        $this->lent_press_opens = version_compare(qVersion(), '6.9.0', '<');
         $self = WeakReference::create($this);
 
         $this->hold = new QTimer();
@@ -106,9 +112,25 @@ final class QtRightClicks
         return $this->menu;
     }
 
+    /**
+     * Whether a right press on a lent QWindow is its context-menu request: Qt 6.9+ raises a
+     * QContextMenuEvent for an ignored right press on a QWindow as for a widget, older Qt raises none.
+     */
+    public function lentPressOpensMenu(bool $on): void
+    {
+        $this->lent_press_opens = $on;
+    }
+
     /** Whether the event is eaten: a context-menu request this opened a menu for. */
     private function filtered(QObject $watched, Type|int $type, QEvent $event): bool
     {
+        // The QWindow a canvas lends to Metal or Vulkan gets its events outside the widget tree, and
+        // passes none on: they count as its canvas's, each at its first delivery. A top level's own
+        // QWindow, which real input reaches before the widget, is no canvas's and counts for nothing.
+        $lent = $this->window->canvasPointer()->lends($watched);
+        if ($lent) {
+            [, $watched] = $this->window->canvasPointer()->canvasOf($watched);
+        }
         if (! $watched instanceof QWidget) {
             return false;
         }
@@ -117,8 +139,8 @@ final class QtRightClicks
             $global = $event->globalPos();
             [$gx, $gy] = [$global->x(), $global->y()];
 
-            return $event->reason() !== Reason::KEYBOARD && $this->underPointer($watched, $gx, $gy)
-                && $this->at($watched, (float) $gx, (float) $gy);
+            return $event->reason() !== Reason::KEYBOARD && ! ($lent && $this->lent_press_opens)
+                && ($lent || $this->underPointer($watched, $gx, $gy)) && $this->at($watched, (float) $gx, (float) $gy);
         }
 
         if (! $event instanceof QMouseEvent) {
@@ -126,7 +148,12 @@ final class QtRightClicks
         }
         $global = $event->globalPosition();
         [$gx, $gy] = [$global->x(), $global->y()];
-        if ($type === Type::MOUSE_BUTTON_PRESS && $event->button() === 1 && $this->hold_on_press && $this->underPointer($watched, (int) round($gx), (int) round($gy))) {
+        if ($lent && $this->lent_press_opens && $type === Type::MOUSE_BUTTON_PRESS && $event->button() === 2) {
+            $this->at($watched, $gx, $gy);
+
+            return false;
+        }
+        if ($type === Type::MOUSE_BUTTON_PRESS && $event->button() === 1 && $this->hold_on_press && ($lent || $this->underPointer($watched, (int) round($gx), (int) round($gy)))) {
             $this->held = [$watched, $gx, $gy];
             $this->hold->start();
         } elseif (! is_null($this->held) && ($type === Type::MOUSE_BUTTON_RELEASE
@@ -187,6 +214,8 @@ final class QtRightClicks
                 $this->menu?->menu()->hide();
                 $this->menu = new QtContextMenu($menu, $this->window->name(), $this->session);
                 $this->menu->popupAt($gx, $gy);
+                // The menu takes the pointer: a press the canvas owns ends here, with its release.
+                $this->window->canvasPointer()->interrupt();
 
                 return true;
             }

@@ -8,6 +8,7 @@ use QObject;
 use QPushButton;
 use QSizePolicy\Policy;
 use Surface\Contracts\Windows\Mail\View\ButtonClicked;
+use Surface\Contracts\Windows\Primitives\ButtonRole;
 use Surface\Contracts\Windows\Primitives\Placement;
 use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\NutsAndBolts\Color;
@@ -48,5 +49,11 @@ class QtButton extends TKButton implements QtNative
     protected function applyBackground(?Color $color): void
     {
         $this->applyButtonBackground($color);
+    }
+
+    /** A default QPushButton paints as the default button in any window. QtButtonKeys clicks it. */
+    protected function applyRole(?ButtonRole $role): void
+    {
+        $this->native()->setDefault($role === ButtonRole::DEFAULT);
     }
 }

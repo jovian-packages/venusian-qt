@@ -99,14 +99,32 @@ trait QtPrimitive
         return [Policy::PREFERRED, Policy::PREFERRED];
     }
 
+    /** Qt passes focus on from a focused widget that is hidden: code's move, so the focus tracker posts nothing. */
     protected function applyVisible(bool $visible): void
     {
-        $this->native->setVisible($visible);
+        $this->whileHoldingFocus(fn () => $this->native->setVisible($visible));
     }
 
+    /** Qt passes focus on from a focused widget that is disabled: code's move, so the focus tracker posts nothing. */
     protected function applyEnabled(bool $enabled): void
     {
-        $this->native->setEnabled($enabled);
+        $this->whileHoldingFocus(fn () => $this->native->setEnabled($enabled));
+    }
+
+    /**
+     * Run $change quietly when this primitive or one inside it holds the window's focus, so the
+     * holder becomes wherever Qt moves focus; otherwise as it is, so an inactive window keeps its holder.
+     * @param Closure(): void $change
+     */
+    protected function whileHoldingFocus(Closure $change): void
+    {
+        $focus = $this->qtWindow()->focusTracker();
+        if ($focus->within($this)) {
+            $focus->quietly(null, $change);
+
+            return;
+        }
+        $change();
     }
 
     protected function applyBackground(?Color $color): void
@@ -216,12 +234,13 @@ trait QtPrimitive
      * Out of its parent's layout (a widget leaving its parent leaves the parent's QLayout) and deleted on the next pump.
      * @return void
      */
+    /** Qt passes focus on from a focused widget that leaves the window: code's move, so the focus tracker posts nothing. */
     protected function destroyNative(): void
     {
-        $this->whileNativeAlive(function (): void {
+        $this->whileHoldingFocus(fn () => $this->whileNativeAlive(function (): void {
             $this->native->setParent(null);
             $this->native->deleteLater();
-        });
+        }));
     }
 
     /**
@@ -313,6 +332,25 @@ trait QtPrimitive
         } finally {
             $this->applying = false;
         }
+    }
+
+    /**
+     * setFocus on the native, from code: the window's focus tracker posts nothing for it. A native
+     * whose focus policy is NoFocus (a label, a canvas not made focusable) takes none.
+     */
+    protected function applyFocus(): bool
+    {
+        if ($this->native->focusPolicy() === \Qt\FocusPolicy::NO_FOCUS) {
+            return false;
+        }
+        $this->qtWindow()->focusTracker()->quietly($this, fn () => $this->native->setFocus());
+
+        return true;
+    }
+
+    protected function nativeHasFocus(): bool
+    {
+        return $this->qtWindow()->focusTracker()->holder() === $this;
     }
 
     protected function qtWindow(): QtWindow

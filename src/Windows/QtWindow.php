@@ -14,13 +14,18 @@ use QMenuBar;
 use QObject;
 use QVBoxLayout;
 use Qt\WidgetAttribute;
+use Qt\WindowModality;
+use Qt\WindowType;
 use QWidget;
+use Surface\Contracts\Windows\Mail\WindowCloseRequested;
 use Surface\Contracts\Windows\Mail\WindowClosed;
 use Surface\Contracts\Windows\Mail\WindowFocused;
 use Surface\Contracts\Windows\Mail\WindowResized;
+use Surface\Contracts\Windows\Primitives\TKPrimitive;
 use Surface\Contracts\Windows\Primitives\TKPrimitiveGroup;
 use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\Contracts\Windows\WindowException;
+use Surface\Windows\ChildWindows;
 use Surface\Windows\Menus\MenuProfile;
 use Surface\Windows\Primitives\HostsPrimitives;
 use WeakReference;
@@ -67,6 +72,20 @@ class QtWindow implements ToolkitWindow
 
     protected QtCanvasClicks $canvas_clicks;
 
+    protected QtCanvasPointer $canvas_pointer;
+
+    protected QtFocus $focus;
+
+    protected QtWindowKeys $window_keys;
+
+    /** @var WeakReference<TKPrimitive>|null focused on each present(); weak, so a removed primitive is freed */
+    protected ?WeakReference $initial_focus = null;
+
+    protected bool $confirming = false;
+
+    /** close() runs: its own close event goes through while the window confirms close. */
+    protected bool $closing = false;
+
     public function __construct(
         protected readonly string $name,
         protected readonly QtSession $session,
@@ -74,12 +93,19 @@ class QtWindow implements ToolkitWindow
         int $width,
         int $height,
         ?MenuProfile $menu,
+        protected readonly ?ToolkitWindow $parent = null,
     ) {
         $this->window = new QMainWindow();
         $this->window->setWindowTitle($name);
         $this->window->resize($width, $height);
         // Qt deletes the window after its close event is accepted.
         $this->window->setAttribute(WidgetAttribute::DELETE_ON_CLOSE);
+        if ($parent instanceof self) {
+            // setParent keeps the one-argument form in PHP; setWindowFlags then makes the child a window.
+            $this->window->setParent($parent->native());
+            $this->window->setWindowFlags(PHP_OS_FAMILY === 'Darwin' ? WindowType::SHEET : WindowType::DIALOG);
+            $this->window->setWindowModality(WindowModality::WINDOW_MODAL);
+        }
 
         $this->central = new QWidget();
         $this->central_layout = new QVBoxLayout($this->central);
@@ -101,10 +127,15 @@ class QtWindow implements ToolkitWindow
         });
         $this->central->installEventFilter($this->resize_filter);
 
-        // false passes every event on: QMainWindow accepts the close, so the mail goes first.
+        // false passes every event on: QMainWindow accepts the close, so the mail goes first. While
+        // the window confirms close, the user's close is ignored (Qt keeps a window whose close event
+        // is not accepted), posts WindowCloseRequested, and true keeps it from the window.
         $this->filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
             $type = $event->type();
-            if ($type === EventType::CLOSE || $type === EventType::WINDOW_ACTIVATE) {
+            if ($type === EventType::CLOSE) {
+                return $self->get()?->closeEvent($event) ?? false;
+            }
+            if ($type === EventType::WINDOW_ACTIVATE) {
                 $self->get()?->filtered($type);
             }
 
@@ -115,6 +146,9 @@ class QtWindow implements ToolkitWindow
         QObject::connect($this->window, 'destroyed(QObject*)', fn () => $this->closed());
         $this->right_clicks = new QtRightClicks($this, $this->window, $this->central, $session);
         $this->canvas_clicks = new QtCanvasClicks($this, $session);
+        $this->canvas_pointer = new QtCanvasPointer($this, $session);
+        $this->focus = new QtFocus($this);
+        $this->window_keys = new QtWindowKeys($this, $this->window);
 
         if (! is_null($menu)) {
             $this->useMenu($menu, $this->window->menuBar());
@@ -138,14 +172,48 @@ class QtWindow implements ToolkitWindow
         return $this;
     }
 
+    /** A child presents its parent first when the parent is not shown. */
     public function present(): static
     {
         $window = $this->live();
+        if ($this->parent instanceof self && ! $this->parent->native()->isVisible()) {
+            $this->parent->present();
+        }
+        // Showing the window gives its first focusable widget focus: present() posts no focus mail.
+        $this->focus->awaitFirstFocus($window);
         $window->show();
         $window->raise();
         $window->activateWindow();
+        $initial = $this->initial_focus?->get();
+        if (! is_null($initial) && ! $initial->isRemoved() && $initial->native()->focusPolicy() !== \Qt\FocusPolicy::NO_FOCUS) {
+            $this->focus->quietly($initial, static fn () => $initial->native()->setFocus());
+        }
 
         return $this;
+    }
+
+    public function focused(): ?TKPrimitive
+    {
+        return $this->focus->holder();
+    }
+
+    /**
+     * @throws WindowException When $primitive belongs to another window.
+     */
+    public function setInitialFocus(?TKPrimitive $primitive): static
+    {
+        if (! is_null($primitive) && $primitive->window() !== $this) {
+            throw new WindowException("'{$primitive->path()}' is not in window '{$this->name}'.");
+        }
+        $this->initial_focus = is_null($primitive) ? null : WeakReference::create($primitive);
+
+        return $this;
+    }
+
+    /** The window's focus as primitives; primitives move focus through it. */
+    public function focusTracker(): QtFocus
+    {
+        return $this->focus;
     }
 
     public function isOpen(): bool
@@ -169,6 +237,40 @@ class QtWindow implements ToolkitWindow
      */
     public function close(): void
     {
+        if (is_null($this->window)) {
+            return;
+        }
+        ChildWindows::childOf($this->driver, $this)?->close();
+        $this->driver->dialogs()->closeOn($this);
+        $this->closing = true;
+        $this->window?->close();
+        $this->closing = false;
+    }
+
+    public function parent(): ?ToolkitWindow
+    {
+        return $this->parent;
+    }
+
+    public function confirmClose(bool $on = true): static
+    {
+        $this->confirming = $on;
+
+        return $this;
+    }
+
+    public function isConfirmingClose(): bool
+    {
+        return $this->confirming;
+    }
+
+    /**
+     * The user's close from the keyboard (Esc in a child with no cancel button): the same path as
+     * the title-bar button, through the close event.
+     * @return void
+     */
+    public function userClose(): void
+    {
         $this->window?->close();
     }
 
@@ -180,6 +282,7 @@ class QtWindow implements ToolkitWindow
     public function setMenuBar(string $profile): static
     {
         $window = $this->live();
+        ChildWindows::refuseMenuBar($this);
         $menu = $this->driver->profile($profile);
         $bar = new QMenuBar();
         $window->setMenuBar($bar);
@@ -200,6 +303,18 @@ class QtWindow implements ToolkitWindow
         return $this->menuOrFail()->isToggled($item);
     }
 
+    public function setItemEnabled(string $item, bool $enabled): static
+    {
+        $this->menuOrFail()->setItemEnabled($item, $enabled);
+
+        return $this;
+    }
+
+    public function isItemEnabled(string $item): bool
+    {
+        return $this->menuOrFail()->isItemEnabled($item);
+    }
+
     /**
      * The native window, for engines that draw into it.
      * @return QMainWindow
@@ -215,6 +330,12 @@ class QtWindow implements ToolkitWindow
     public function canvasClicks(): QtCanvasClicks
     {
         return $this->canvas_clicks;
+    }
+
+    /** The window's canvas presses, drags, releases and wheels, posted as mail. */
+    public function canvasPointer(): QtCanvasPointer
+    {
+        return $this->canvas_pointer;
     }
 
     /** Where views go: the central widget, below the menu bar. */
@@ -305,11 +426,33 @@ class QtWindow implements ToolkitWindow
      */
     protected function filtered(EventType|int $type): void
     {
-        match ($type) {
-            EventType::CLOSE => $this->closed(),
-            EventType::WINDOW_ACTIVATE => $this->session->post(new WindowFocused($this->name)),
-            default => null,
-        };
+        if ($type === EventType::WINDOW_ACTIVATE) {
+            $this->session->post(new WindowFocused($this->name));
+        }
+    }
+
+    /**
+     * The window's close event. Confirming, and not inside close(): ignore it, post
+     * WindowCloseRequested, and answer true so the window does not see it. Else the close path.
+     */
+    protected function closeEvent(QEvent $event): bool
+    {
+        // A parent with an open child or dialog keeps the user's close silently: Qt's modal block
+        // holds only once the child shows, and only for window-system closes.
+        if (! $this->closing && (! is_null(ChildWindows::childOf($this->driver, $this)) || ! is_null($this->driver->dialogs()->openOn($this)))) {
+            $event->ignore();
+
+            return true;
+        }
+        if ($this->confirming && ! $this->closing) {
+            $event->ignore();
+            $this->session->post(new WindowCloseRequested($this->name));
+
+            return true;
+        }
+        $this->closed();
+
+        return false;
     }
 
     protected function resized(): void
@@ -332,6 +475,9 @@ class QtWindow implements ToolkitWindow
 
         $this->right_clicks->detach();
         $this->canvas_clicks->detach();
+        $this->canvas_pointer->detach();
+        $this->focus->detach();
+        $this->window_keys->detach();
         $this->removeContent();
         $this->window = null;
         $this->session->forgetLatest("window.resized.{$this->name}");

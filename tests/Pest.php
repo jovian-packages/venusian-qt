@@ -34,7 +34,13 @@ const TEST_MENUS = [
         ]],
         ['label' => 'View', 'items' => [
             ['id' => 'grid', 'label' => 'Show Grid', 'toggle' => true, 'on' => false],
-            ['id' => 'view.refresh', 'label' => 'Refresh', 'hotkey' => 'R'],
+            ['id' => 'view.refresh', 'label' => 'Refresh', 'keys' => 'Primary+Shift+F5'],
+            ['id' => 'view.next', 'label' => 'Next Difference', 'keys' => 'Alt+Down'],
+            ['id' => 'view.tab', 'label' => 'Next Tab', 'keys' => 'Primary+]'],
+            ['id' => 'view.erase', 'label' => 'Erase', 'keys' => 'Primary+BACKSPACE'],
+            ['id' => 'view.locked', 'label' => 'Locked', 'enabled' => false, 'items' => [
+                ['id' => 'view.locked.item', 'label' => 'Item'],
+            ]],
         ]],
     ],
     'tools' => [
@@ -223,4 +229,27 @@ function requireEngine(string $device): void
     if (! class_exists($device)) {
         test()->markTestSkipped("needs {$device}'s engine package");
     }
+}
+
+/**
+ * A shown window's widget, and the global point of ($x, $y) in it. The clicks hit-test the screen,
+ * so the window must be active, on top; macOS may decline that while another app is in front, and
+ * there the test is skipped with that reason.
+ */
+function canvasShownAt(Jovian\Toolkits\Qt\Windows\QtWindow $window, QWidget $widget, float $x, float $y): array
+{
+    $window->present();
+    for ($waited = 0; (! $widget->isVisible() || ! $window->native()->isActiveWindow()) && $waited < 60; $waited++) {
+        pumpFor(0.05);
+    }
+    if (! $window->native()->isActiveWindow()) {
+        if (PHP_OS_FAMILY === 'Darwin') {
+            test()->markTestSkipped('macOS declined to activate the app: another app holds focus (cooperative activation).');
+        }
+        throw new RuntimeException("Window '{$window->name()}' did not become active.");
+    }
+    pumpFor(0.2);
+    $origin = $widget->mapFromGlobal(new QPointF(0.0, 0.0));
+
+    return [$x - $origin->x(), $y - $origin->y()];
 }

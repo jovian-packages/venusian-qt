@@ -224,3 +224,17 @@ it('closes an open context menu with its window', function (): void {
     expect($shown)->toBeTrue()
         ->and($menu->menu()->isVisible())->toBeFalse();
 });
+
+it('builds a context menu folder with enabled false disabled, and the items below it', function (): void {
+    $window = driver()->open('main', 300, 200);
+    $go = $window->column('m')->button('go', 'Go')->setContextMenu([
+        ['label' => 'Share', 'enabled' => false, 'items' => [['label' => 'Copy Link']]],
+        ['label' => 'Download'],
+    ]);
+    $menu = new Jovian\Toolkits\Qt\Windows\QtContextMenu($go->contextMenu(), 'main', session());
+
+    expect($menu->action('share')->isEnabled())->toBeFalse()
+        ->and($menu->action('share.copy-link')->isEnabled())->toBeFalse()
+        ->and($menu->action('download')->isEnabled())->toBeTrue();
+    $menu->menu()->deleteLater();
+});
