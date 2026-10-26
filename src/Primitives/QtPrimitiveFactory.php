@@ -4,12 +4,14 @@ namespace Jovian\Toolkits\Qt\Primitives;
 
 use DateTimeImmutable;
 use Jovian\Toolkits\Qt\Windows\QtWindow;
+use Surface\Contracts\Windows\Menus\ContextMenu;
 use Surface\Contracts\Windows\Primitives\Placement;
 use Surface\Contracts\Windows\Primitives\PrimitiveFactory;
 use Surface\Contracts\Windows\Primitives\TKButton;
 use Surface\Contracts\Windows\Primitives\TKCanvas;
 use Surface\Contracts\Windows\Primitives\TKCheckbox;
 use Surface\Contracts\Windows\Primitives\TKColumn;
+use Surface\Contracts\Windows\Primitives\TKComboBox;
 use Surface\Contracts\Windows\Primitives\TKDatepicker;
 use Surface\Contracts\Windows\Primitives\TKDropdown;
 use Surface\Contracts\Windows\Primitives\TKFixed;
@@ -17,9 +19,11 @@ use Surface\Contracts\Windows\Primitives\TKGrid;
 use Surface\Contracts\Windows\Primitives\TKImage;
 use Surface\Contracts\Windows\Primitives\TKLabel;
 use Surface\Contracts\Windows\Primitives\TKLink;
+use Surface\Contracts\Windows\Primitives\TKMenuButton;
 use Surface\Contracts\Windows\Primitives\TKPrimitiveGroup;
 use Surface\Contracts\Windows\Primitives\TKProgressBar;
 use Surface\Contracts\Windows\Primitives\TKRow;
+use Surface\Contracts\Windows\Primitives\TKScrollBar;
 use Surface\Contracts\Windows\Primitives\TKScrollView;
 use Surface\Contracts\Windows\Primitives\TKSeparator;
 use Surface\Contracts\Windows\Primitives\TKSlider;
@@ -114,6 +118,21 @@ class QtPrimitiveFactory implements PrimitiveFactory
     public function mintSlider(TKPrimitiveGroup $host, string $name, float $min, float $max, float $value): TKSlider
     {
         return new QtSlider($name, $this->window, $host, $this->placement($host), $min, $max, $value);
+    }
+
+    public function mintScrollBar(TKPrimitiveGroup $host, string $name, bool $vertical): TKScrollBar
+    {
+        return new QtScrollBar($name, $this->window, $host, $this->placement($host), $vertical);
+    }
+
+    public function mintComboBox(TKPrimitiveGroup $host, string $name, string $value, array $options): TKComboBox
+    {
+        return new QtComboBox($name, $this->window, $host, $this->placement($host), $value, $options);
+    }
+
+    public function mintMenuButton(TKPrimitiveGroup $host, string $name, string $label, ContextMenu $menu): TKMenuButton
+    {
+        return new QtMenuButton($name, $this->window, $host, $this->placement($host), $label, $menu);
     }
 
     public function mintDropdown(TKPrimitiveGroup $host, string $name, array $options, int $selected): TKDropdown

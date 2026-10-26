@@ -130,6 +130,48 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
         return $this->defaultStates()->isEnabled($item);
     }
 
+    /**
+     * The default bar's toggles, radios and labels: kept in its states, which the bar (macOS) shares. Post nothing.
+     * @throws WindowException
+     */
+    public function setToggle(string $item, bool $on): void
+    {
+        $this->defaultStates()->setToggle($item, $on);
+        $this->default_bar?->setToggle($item, $on);
+    }
+
+    /** @throws WindowException */
+    public function isToggled(string $item): bool
+    {
+        return $this->defaultStates()->toggle($item);
+    }
+
+    /** @throws WindowException */
+    public function setRadio(string $group, string $item): void
+    {
+        $this->defaultStates()->setRadio($group, $item);
+        $this->default_bar?->setRadio($group, $item);
+    }
+
+    /** @throws WindowException */
+    public function radio(string $group): string
+    {
+        return $this->defaultStates()->radio($group);
+    }
+
+    /** @throws WindowException */
+    public function setItemLabel(string $item, string $label): void
+    {
+        $this->defaultStates()->setLabel($item, $label);
+        $this->default_bar?->setItemLabel($item, $label);
+    }
+
+    /** @throws WindowException */
+    public function itemLabel(string $item): string
+    {
+        return $this->defaultStates()->label($item);
+    }
+
     protected function defaultStates(): MenuStates
     {
         return $this->default_states ?? throw new WindowException('No default menu bar profile is set.');
@@ -228,7 +270,8 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
         }
 
         if (self::appWideBar() && ! is_null($this->default_menu)) {
-            $this->default_bar = new QtMenuBar($this->connect(), $this->default_menu, new QMenuBar(), null, $this->about(), null);
+            // The bar builds from the driver's states and keeps them, the user's choices included.
+            $this->default_bar = new QtMenuBar($this->connect(), $this->default_menu, new QMenuBar(), null, $this->about(), null, $this->default_states);
         }
         $this->keepGlobalBar();
     }

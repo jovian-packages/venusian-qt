@@ -3,6 +3,7 @@
 namespace Jovian\Toolkits\Qt\Primitives;
 
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
+use Jovian\Toolkits\Qt\Primitives\Concerns\QtButtonImage;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QObject;
 use QPushButton;
@@ -17,6 +18,7 @@ use Surface\Windows\Primitives\TKPrimitiveGroup;
 
 class QtButton extends TKButton implements QtNative
 {
+    use QtButtonImage;
     use QtPrimitive;
 
     public function __construct(string $name, ToolkitWindow $window, ?TKPrimitiveGroup $parent, Placement $placement, string $label)
@@ -39,11 +41,6 @@ class QtButton extends TKButton implements QtNative
     protected function naturalPolicy(): array
     {
         return [Policy::MINIMUM, Policy::FIXED];
-    }
-
-    protected function applyLabel(string $label): void
-    {
-        $this->native()->setText(self::literal($label));
     }
 
     protected function applyBackground(?Color $color): void

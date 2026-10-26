@@ -369,3 +369,21 @@ it('stops watching when its window closes', function (): void {
 
     expect($pointer->watching())->toBeFalse();
 });
+
+it('gives a wheel its phase, a scroll end after momentum ending the momentum', function (): void {
+    [$window, , $board] = qtPointerWindow();
+    [$gx, $gy] = canvasShownAt($window, $board->native(), 20.0, 20.0);
+    takeMail(session());
+    $to = qtUnder($gx, $gy);
+    $wheel = fn (ScrollPhase $phase) => QCoreApplication::sendEvent($to, new QWheelEvent($to->mapFromGlobal(new QPointF($gx, $gy)), new QPointF($gx, $gy),
+        new QPoint(0, -3), new QPoint(0, -24), 0, 0, $phase, false, MouseEventSource::MOUSE_EVENT_SYNTHESIZED_BY_SYSTEM, QPointingDevice::primaryPointingDevice()));
+
+    foreach ([ScrollPhase::NO_SCROLL_PHASE, ScrollPhase::SCROLL_BEGIN, ScrollPhase::SCROLL_UPDATE, ScrollPhase::SCROLL_END,
+        ScrollPhase::SCROLL_MOMENTUM, ScrollPhase::SCROLL_MOMENTUM, ScrollPhase::SCROLL_END] as $phase) {
+        $wheel($phase);
+    }
+
+    expect(array_map(fn (CanvasWheeled $mail): string => $mail->phase->value, array_values(array_filter(qtPointerMail(), fn (object $mail): bool => $mail instanceof CanvasWheeled))))
+        ->toBe(['none', 'began', 'changed', 'ended', 'momentum', 'momentum', 'momentum-ended']);
+    $window->close();
+});

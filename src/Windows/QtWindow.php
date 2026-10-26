@@ -21,6 +21,7 @@ use Surface\Contracts\Windows\Mail\WindowCloseRequested;
 use Surface\Contracts\Windows\Mail\WindowClosed;
 use Surface\Contracts\Windows\Mail\WindowFocused;
 use Surface\Contracts\Windows\Mail\WindowResized;
+use Surface\Contracts\Windows\Mail\WindowScaleChanged;
 use Surface\Contracts\Windows\Primitives\TKPrimitive;
 use Surface\Contracts\Windows\Primitives\TKPrimitiveGroup;
 use Surface\Contracts\Windows\ToolkitWindow;
@@ -65,6 +66,12 @@ class QtWindow implements ToolkitWindow
      * @var QEventFilter
      */
     protected QEventFilter $filter;
+
+    /** The device pixel ratio last posted, or read at the first show. */
+    private float $ratio = 1.0;
+
+    /** Before the first show the window is on no screen of its own: a ratio change then is not the user's. */
+    private bool $shown_once = false;
 
     protected ?QtMenuBar $menu = null;
 
@@ -138,9 +145,17 @@ class QtWindow implements ToolkitWindow
             if ($type === EventType::WINDOW_ACTIVATE) {
                 $self->get()?->filtered($type);
             }
+            // Qt 6.6+ sends the ratio change; Qt 6.4 (the gaming PC's Ubuntu 24.04) only the screen change.
+            if ($type === EventType::DEVICE_PIXEL_RATIO_CHANGE || $type === EventType::SCREEN_CHANGE_INTERNAL) {
+                $self->get()?->scaleChanged();
+            }
+            if ($type === EventType::SHOW) {
+                $self->get()?->firstShown();
+            }
 
             return false;
         });
+        $this->ratio = $this->window->devicePixelRatioF();
         $this->window->installEventFilter($this->filter);
         // Deleted any other way (a parent, the application going): the same close path.
         QObject::connect($this->window, 'destroyed(QObject*)', fn () => $this->closed());
@@ -152,6 +167,28 @@ class QtWindow implements ToolkitWindow
 
         if (! is_null($menu)) {
             $this->useMenu($menu, $this->window->menuBar());
+        }
+    }
+
+    /** WindowScaleChanged when the device pixel ratio differs from the last posted. */
+    public function scaleChanged(): void
+    {
+        $ratio = $this->window->devicePixelRatioF();
+        if ($ratio === $this->ratio) {
+            return;
+        }
+        $this->ratio = $ratio;
+        if ($this->shown_once) {
+            $this->session->post(new WindowScaleChanged($this->name, $ratio));
+        }
+    }
+
+    /** The first show puts the window on its screen: its ratio from then on is the one changes compare with. */
+    public function firstShown(): void
+    {
+        if (! $this->shown_once) {
+            $this->shown_once = true;
+            $this->ratio = $this->window->devicePixelRatioF();
         }
     }
 
@@ -313,6 +350,30 @@ class QtWindow implements ToolkitWindow
     public function isItemEnabled(string $item): bool
     {
         return $this->menuOrFail()->isItemEnabled($item);
+    }
+
+    public function setRadio(string $group, string $item): static
+    {
+        $this->menuOrFail()->setRadio($group, $item);
+
+        return $this;
+    }
+
+    public function radio(string $group): string
+    {
+        return $this->menuOrFail()->radio($group);
+    }
+
+    public function setItemLabel(string $item, string $label): static
+    {
+        $this->menuOrFail()->setItemLabel($item, $label);
+
+        return $this;
+    }
+
+    public function itemLabel(string $item): string
+    {
+        return $this->menuOrFail()->itemLabel($item);
     }
 
     /**

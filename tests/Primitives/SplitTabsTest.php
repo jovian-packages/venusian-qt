@@ -243,3 +243,20 @@ it('titles, selects and removes pages without mail, and posts TabSelected for a 
         ->and($mail[0]->name())->toBe('view.tab-selected.main.m.sessions')
         ->and($tabs->selected())->toBe($other);
 });
+
+it('inserts a tab before the one at an index, and posts no TabSelected', function (): void {
+    $window = driver()->open('main', 400, 300);
+    $tabs = $window->column('m')->tabs('tabs');
+    $tabs->addPage('one', 'One');
+    $tabs->addPage('two', 'Two');
+    takeMail(session());
+
+    $tabs->addPage('first', 'First', 0);
+    $tabs->addPage('middle', 'Middle', 2);
+
+    $labels = array_map(fn (int $i): string => $tabs->native()->tabText($i), range(0, $tabs->native()->count() - 1));
+    expect($labels)->toBe(['First', 'One', 'Middle', 'Two'])
+        ->and($tabs->pages())->toBe(['first', 'one', 'middle', 'two'])
+        ->and(array_filter(takeMail(session()), fn (object $mail): bool => $mail instanceof TabSelected))->toBe([]);
+    $window->close();
+});

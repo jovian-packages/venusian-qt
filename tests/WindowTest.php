@@ -113,3 +113,31 @@ it('closes every window', function (): void {
     expect(driver()->all())->toBe([])
         ->and(array_values(array_filter(takeMail(session()), fn ($m) => $m instanceof WindowClosed)))->toEqual([new WindowClosed('a'), new WindowClosed('b')]);
 });
+
+it('posts WindowScaleChanged when the device pixel ratio changes, and nothing for the same ratio', function (): void {
+    $window = driver()->open('main', 200, 100);
+    $window->present();
+    pumpFor(0.3);
+    takeMail(session());
+
+    // One display here, and neither event is a plain QEvent the ext makes: the handler both run is called with the
+    // ratio unchanged, then with the last one posted set off by hand.
+    $window->scaleChanged();
+    $same = array_filter(takeMail(session()), fn (object $mail): bool => $mail instanceof Surface\Contracts\Windows\Mail\WindowScaleChanged);
+    (fn () => $this->ratio = 0.5)->call($window);
+    $window->scaleChanged();
+
+    expect($same)->toBe([])
+        ->and(array_values(array_filter(takeMail(session()), fn (object $mail): bool => $mail instanceof Surface\Contracts\Windows\Mail\WindowScaleChanged)))
+        ->toEqual([new Surface\Contracts\Windows\Mail\WindowScaleChanged('main', $window->native()->devicePixelRatioF())]);
+    $window->close();
+});
+
+it('posts no WindowScaleChanged for the screen a window first shows on', function (): void {
+    $window = driver()->open('main', 200, 100);
+    $window->present();
+    pumpFor(0.3);
+
+    expect(array_filter(takeMail(session()), fn (object $mail): bool => $mail instanceof Surface\Contracts\Windows\Mail\WindowScaleChanged))->toBe([]);
+    $window->close();
+});

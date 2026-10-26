@@ -122,6 +122,8 @@ class QtCanvas extends TKCanvas implements QtNative
     {
         parent::__construct($name, $window, $parent, $placement);
         $host = $this->adoptNative(new QWidget());
+        // Moves with no button held reach a widget only while it tracks the mouse: QtCanvasPointer posts them while the canvas watches.
+        $host->setAttribute(\Qt\WidgetAttribute::MOUSE_TRACKING);
         $this->cell = new QGridLayout($host);
         $this->cell->setContentsMargins(0, 0, 0, 0);
         $this->label = new QLabel();

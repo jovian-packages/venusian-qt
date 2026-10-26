@@ -17,12 +17,17 @@ use QWheelEvent;
 use QWidget;
 use QWindow;
 use Qt\MouseEventSource;
+use Qt\ScrollPhase as QtScrollPhase;
 use Surface\Contracts\HumanInput\Modifiers;
 use Surface\Contracts\HumanInput\MouseButton;
 use Surface\Contracts\Windows\Mail\View\CanvasDragged;
+use Surface\Contracts\Windows\Mail\View\CanvasEntered;
+use Surface\Contracts\Windows\Mail\View\CanvasLeft;
+use Surface\Contracts\Windows\Mail\View\CanvasMoved;
 use Surface\Contracts\Windows\Mail\View\CanvasPressed;
 use Surface\Contracts\Windows\Mail\View\CanvasReleased;
 use Surface\Contracts\Windows\Mail\View\CanvasWheeled;
+use Surface\Contracts\Windows\Mail\View\ScrollPhase;
 use Surface\Contracts\Windows\Primitives\TKCanvas;
 use WeakReference;
 
@@ -63,6 +68,12 @@ final class QtCanvasPointer
     /** @var array{TKCanvas, int, float, float, int, int}|null the press counted last: canvas, Qt button, global point, timestamp (ms), count */
     private ?array $counted = null;
 
+    /** @var WeakReference<TKCanvas>|null the watching canvas the pointer is over */
+    private ?WeakReference $inside = null;
+
+    /** The last wheel's phase: a scroll end after momentum ends the momentum. */
+    private QtScrollPhase $last_phase = QtScrollPhase::NO_SCROLL_PHASE;
+
     public function __construct(
         private readonly QtWindow $window,
         private readonly QtSession $session,
@@ -72,7 +83,7 @@ final class QtCanvasPointer
         $this->filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
             $type = $event->type();
             if ($type !== Type::MOUSE_BUTTON_PRESS && $type !== Type::MOUSE_BUTTON_DBL_CLICK && $type !== Type::MOUSE_MOVE
-                && $type !== Type::MOUSE_BUTTON_RELEASE && $type !== Type::WHEEL) {
+                && $type !== Type::MOUSE_BUTTON_RELEASE && $type !== Type::WHEEL && $type !== Type::ENTER && $type !== Type::LEAVE) {
                 return false;
             }
 
@@ -231,6 +242,11 @@ final class QtCanvasPointer
         if ($event instanceof QWheelEvent) {
             return $this->wheeled($watched, $event);
         }
+        if ($type === Type::ENTER || $type === Type::LEAVE) {
+            $this->crossed($watched, $type === Type::ENTER);
+
+            return false;
+        }
         if (! $event instanceof QMouseEvent) {
             return false;
         }
@@ -244,6 +260,11 @@ final class QtCanvasPointer
             return false;
         }
         $press = $this->holding();
+        if (is_null($press) && $type === Type::MOUSE_MOVE && $event->buttons() === 0) {
+            $this->hovered($watched, $event);
+
+            return false;
+        }
         if (is_null($press) || $watched !== $press[2]) {
             return false;
         }
@@ -300,6 +321,84 @@ final class QtCanvasPointer
         $this->press = null;
         $local = $native->mapFromGlobal($event->globalPosition());
         $this->session->post(new CanvasReleased($this->window->name(), $canvas->path(), $canvas->uuid(), $local->x(), $local->y(), $button, self::modifiers($event->modifiers())));
+        // No crossing posts during a press: a release away from the canvas the pointer was over is its exit.
+        $inside = $this->inside?->get();
+        $global = $event->globalPosition();
+        $under = QApplication::widgetAt((int) round($global->x()), (int) round($global->y()));
+        if (! is_null($inside) && (is_null($under) || $this->canvasOf($under)[0] !== $inside)) {
+            $this->leave($inside);
+        }
+    }
+
+    /**
+     * A move with no button and no press owned: CanvasMoved (latest-wins) over a watching canvas,
+     * whose canvas becomes the one the pointer is over (CanvasEntered) if it was not.
+     */
+    private function hovered(QObject $watched, QMouseEvent $event): void
+    {
+        [$canvas, $native] = $this->canvasOf($watched);
+        if (is_null($canvas) || ! $canvas->isWatchingPointer()) {
+            return;
+        }
+        $this->enter($canvas);
+        $local = $native->mapFromGlobal($event->globalPosition());
+        $this->session->postLatest(
+            "view.moved.{$this->window->name()}.{$canvas->path()}",
+            new CanvasMoved($this->window->name(), $canvas->path(), $canvas->uuid(), $local->x(), $local->y(), self::modifiers($event->modifiers())),
+        );
+    }
+
+    /** ENTER or LEAVE on a canvas's own widget or lent window (a child's crossings are inside the canvas); none during a press. */
+    private function crossed(QObject $watched, bool $enter): void
+    {
+        if (! is_null($this->holding())) {
+            return;
+        }
+        [$canvas, $native] = $this->canvasOf($watched);
+        if (is_null($canvas) || ($watched !== $native && ! $this->lends($watched))) {
+            return;
+        }
+        if ($enter && $canvas->isWatchingPointer()) {
+            $this->enter($canvas);
+        } elseif (! $enter) {
+            $this->leave($canvas);
+        }
+    }
+
+    private function enter(TKCanvas $canvas): void
+    {
+        $inside = $this->inside?->get();
+        if ($inside === $canvas) {
+            return;
+        }
+        $this->leave($inside);
+        $this->inside = WeakReference::create($canvas);
+        $this->session->post(new CanvasEntered($this->window->name(), $canvas->path(), $canvas->uuid()));
+    }
+
+    private function leave(?TKCanvas $canvas): void
+    {
+        if (is_null($canvas) || $this->inside?->get() !== $canvas) {
+            return;
+        }
+        $this->inside = null;
+        if (! $canvas->isRemoved()) {
+            // The canvas's last CanvasMoved waits among the latest-wins mail: it goes out before the exit.
+            $this->session->flushLatest();
+            $this->session->post(new CanvasLeft($this->window->name(), $canvas->path(), $canvas->uuid()));
+        }
+    }
+
+    /** A wheel's place in a gesture; a scroll end after momentum ends the momentum. */
+    public static function phase(QtScrollPhase $phase, QtScrollPhase $last): ScrollPhase
+    {
+        return match ($phase) {
+            QtScrollPhase::SCROLL_BEGIN => ScrollPhase::BEGAN,
+            QtScrollPhase::SCROLL_UPDATE => ScrollPhase::CHANGED,
+            QtScrollPhase::SCROLL_END => $last === QtScrollPhase::SCROLL_MOMENTUM ? ScrollPhase::MOMENTUM_ENDED : ScrollPhase::ENDED,
+            QtScrollPhase::SCROLL_MOMENTUM => ScrollPhase::MOMENTUM,
+            QtScrollPhase::NO_SCROLL_PHASE => ScrollPhase::NONE,
+        };
     }
 
     private function wheeled(QObject $watched, QWheelEvent $event): bool
@@ -315,9 +414,11 @@ final class QtCanvasPointer
         $precise = self::precise($event);
         $delta = $precise ? $event->pixelDelta() : $event->angleDelta();
         $scale = $precise ? 1.0 : 120.0;
+        $phase = self::phase($event->phase(), $this->last_phase);
+        $this->last_phase = $event->phase();
         $this->session->post(new CanvasWheeled(
             $this->window->name(), $canvas->path(), $canvas->uuid(),
-            -$delta->x() / $scale, -$delta->y() / $scale, $precise, self::modifiers($event->modifiers()),
+            -$delta->x() / $scale, -$delta->y() / $scale, $precise, self::modifiers($event->modifiers()), $phase,
         ));
 
         return true;

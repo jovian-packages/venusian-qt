@@ -10,6 +10,7 @@ use QMainWindow;
 use QObject;
 use Surface\Contracts\HumanInput\Key;
 use Surface\Contracts\Windows\Mail\WindowKeyPressed;
+use Surface\Contracts\Windows\Primitives\TKComboBox;
 use Surface\Contracts\Windows\Primitives\TKTextInput;
 use Surface\HumanInput\Keymaps\LinuxKeycodes;
 use Surface\HumanInput\Keymaps\MacKeycodes;
@@ -65,9 +66,10 @@ final class QtWindowKeys
         if (in_array($event->key(), self::MODIFIERS, true)) {
             return false;
         }
-        // A line edit submits on Return and leaves the key unaccepted (for a dialog's default
-        // button): it posted TextSubmitted already, as GTK's and AppKit's inputs take the key.
-        if (in_array($event->key(), self::SUBMIT, true) && $window->focused() instanceof TKTextInput) {
+        // A line edit (a text input's, a combo's) submits on Return and leaves the key unaccepted
+        // (for a dialog's default button): it posted TextSubmitted already, as GTK's and AppKit's inputs take the key.
+        $focused = $window->focused();
+        if (in_array($event->key(), self::SUBMIT, true) && ($focused instanceof TKTextInput || $focused instanceof TKComboBox)) {
             return false;
         }
         // macOS key code 0 is A: Qt gives every real macOS key event the scan code 1, and an event made in code both 0.

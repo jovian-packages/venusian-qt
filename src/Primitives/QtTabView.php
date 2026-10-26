@@ -61,9 +61,11 @@ class QtTabView extends TKTabView implements QtContainer
         return [Policy::EXPANDING, Policy::EXPANDING];
     }
 
-    protected function insertPage(TKColumn $page, string $title): void
+    protected function insertPage(TKColumn $page, string $title, ?int $index): void
     {
-        $this->applying(fn () => $this->native()->addTab(self::nativeOf($page), self::literal($title)));
+        $this->applying(fn () => is_null($index)
+            ? $this->native()->addTab(self::nativeOf($page), self::literal($title))
+            : $this->native()->insertTab($index, self::nativeOf($page), self::literal($title)));
     }
 
     protected function applyTitle(TKColumn $page, string $title): void

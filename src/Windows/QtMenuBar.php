@@ -4,6 +4,7 @@ namespace Jovian\Toolkits\Qt\Windows;
 
 use Jovian\Toolkits\Qt\Bridge\QtSession;
 use QAction;
+use QActionGroup;
 use QAction\MenuRole as QtMenuRole;
 use QApplication;
 use QKeySequence;
@@ -15,6 +16,7 @@ use QObject;
 use QPlainTextEdit;
 use QWidget;
 use Surface\Contracts\Windows\Mail\MenuActivated;
+use Surface\Contracts\Windows\Mail\MenuRadioChosen;
 use Surface\Contracts\Windows\Mail\MenuToggled;
 use Surface\Contracts\Windows\Mail\QuitRequested;
 use Surface\Contracts\Windows\Menus\MenuRole;
@@ -45,7 +47,10 @@ class QtMenuBar
      */
     protected array $toggles = [];
 
-    /** The own and effective state of each node. */
+    /** @var array<string, QActionGroup> each radio group's exclusive group of checkable actions */
+    protected array $groups = [];
+
+    /** The own and effective state of each node, toggles, radios and labels. */
     protected readonly MenuStates $states;
 
     /**
@@ -55,6 +60,7 @@ class QtMenuBar
      * @param string|null $window the window it belongs to; null for the app's default bar, whose items post '' (Quit posts null)
      * @param array{name?: string|null, version?: string|null, copyright?: string|null} $about
      * @param QWidget|null $parent the window About is shown over
+     * @param MenuStates|null $states the states to build from and keep: the driver's for the default bar, which outlives a rebuild; null starts from the profile
      */
     public function __construct(
         protected readonly QtSession $session,
@@ -63,10 +69,11 @@ class QtMenuBar
         protected readonly ?string $window,
         protected readonly array $about,
         protected readonly ?QWidget $parent,
+        ?MenuStates $states = null,
     ) {
-        $this->states = new MenuStates($profile);
+        $this->states = $states ?? new MenuStates($profile);
         foreach ($profile->folders as $folder) {
-            $menu = $bar->addMenu($folder->label);
+            $menu = $bar->addMenu(self::literal($this->states->label($folder->id)));
             $this->actions[$folder->id] = $menu->menuAction();
             $this->fill($menu, $folder);
         }
@@ -141,12 +148,56 @@ class QtMenuBar
      */
     public function setToggle(string $item, bool $on): void
     {
-        $this->toggle($item)->setChecked($on);
+        $action = $this->toggle($item);
+        $this->states->setToggle($item, $on);
+        $action->setChecked($on);
     }
 
     public function isToggled(string $item): bool
     {
-        return $this->toggle($item)->isChecked();
+        $this->toggle($item);
+
+        return $this->states->toggle($item);
+    }
+
+    /** setChecked emits toggled, never triggered: nothing posts. @throws WindowException When no radio group has the name, or the item is not in it. */
+    public function setRadio(string $group, string $item): void
+    {
+        $this->states->setRadio($group, $item);
+        $this->action($item)->setChecked(true);
+    }
+
+    /** @throws WindowException When no radio group has the name. */
+    public function radio(string $group): string
+    {
+        return $this->states->radio($group);
+    }
+
+    /** @throws WindowException When no radio group has the name. */
+    public function radioGroup(string $group): QActionGroup
+    {
+        $this->states->radio($group);
+
+        return $this->groups[$group];
+    }
+
+    /** An item's action, or a folder's menu action, shows the label. @throws WindowException When no node has the id. */
+    public function setItemLabel(string $item, string $label): void
+    {
+        $this->states->setLabel($item, $label);
+        $this->action($item)->setText(self::literal($label));
+    }
+
+    /** @throws WindowException When no node has the id. */
+    public function itemLabel(string $item): string
+    {
+        return $this->states->label($item);
+    }
+
+    /** Menu text as Qt shows it literally: QAction reads "&" as a mnemonic marker. */
+    public static function literal(string $text): string
+    {
+        return str_replace('&', '&&', $text);
     }
 
     protected function toggle(string $item): QAction
@@ -163,13 +214,13 @@ class QtMenuBar
             }
 
             if ($item->isFolder()) {
-                $sub = $menu->addMenu($item->label);
+                $sub = $menu->addMenu(self::literal($this->states->label($item->id)));
                 $this->actions[$item->id] = $sub->menuAction();
                 $this->fill($sub, $item);
                 continue;
             }
 
-            $action = $menu->addAction($item->label);
+            $action = $menu->addAction(self::literal($this->states->label($item->id)));
             $action->setMenuRole(match ($item->role) {
                 MenuRole::ABOUT => QtMenuRole::ABOUT_ROLE,
                 MenuRole::QUIT => QtMenuRole::QUIT_ROLE,
@@ -182,8 +233,16 @@ class QtMenuBar
 
             if ($item->toggle) {
                 $action->setCheckable(true);
-                $action->setChecked($item->on);
+                $action->setChecked($this->states->toggle($item->id));
                 $this->toggles[$item->id] = $action;
+            }
+            $group = $item->radio();
+            if (! is_null($group)) {
+                // One exclusive group per radio group: Qt keeps one action checked.
+                $this->groups[$group] ??= new QActionGroup($this->bar);
+                $action->setCheckable(true);
+                $action->setChecked($this->states->radio($group) === $item->id);
+                $this->groups[$group]->addAction($action);
             }
 
             QObject::connect($action, 'triggered(bool)', $this->handlerFor($item));
@@ -220,7 +279,21 @@ class QtMenuBar
         $window = $this->window ?? '';
 
         if ($item->toggle) {
-            return fn (bool $checked) => $this->session->post(new MenuToggled($window, $item->id, $checked));
+            return function (bool $checked) use ($item, $window): void {
+                $this->states->setToggle($item->id, $checked);
+                $this->session->post(new MenuToggled($window, $item->id, $checked));
+            };
+        }
+
+        $group = $item->radio();
+        if (! is_null($group)) {
+            return function () use ($item, $group, $window): void {
+                if ($this->states->radio($group) === $item->id) {
+                    return;
+                }
+                $this->states->setRadio($group, $item->id);
+                $this->session->post(new MenuRadioChosen($window, $group, $item->id));
+            };
         }
 
         if ($item->role?->isEdit() === true) {

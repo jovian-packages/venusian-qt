@@ -6,6 +6,7 @@ use Closure;
 use Jovian\Toolkits\Qt\Bridge\QtSession;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtContainer;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
+use Jovian\Toolkits\Qt\Windows\QtContextMenu;
 use Jovian\Toolkits\Qt\Windows\QtWindow;
 use QEvent;
 use QEvent\Type as EventType;
@@ -17,11 +18,13 @@ use Qt\WidgetAttribute;
 use QtException;
 use QWidget;
 use Surface\Contracts\Windows\Mail\View\ViewResized;
+use Surface\Contracts\Windows\Menus\ContextMenu as ContextMenuContract;
 use Surface\Contracts\Windows\Primitives\Align;
 use Surface\Contracts\Windows\Primitives\TKPrimitive;
 use Surface\Contracts\Windows\Styling\FontSpec;
 use Surface\Contracts\Windows\WindowException;
 use Surface\NutsAndBolts\Color;
+use Surface\Windows\Menus\ContextMenu;
 
 /**
  * The hooks every Qt primitive shares. Styling is one style sheet per widget, scoped to
@@ -237,6 +240,9 @@ trait QtPrimitive
     /** Qt passes focus on from a focused widget that leaves the window: code's move, so the focus tracker posts nothing. */
     protected function destroyNative(): void
     {
+        // A menu popupMenu() opened goes with the primitive.
+        $this->popup?->menu()->close();
+        $this->popup = null;
         $this->whileHoldingFocus(fn () => $this->whileNativeAlive(function (): void {
             $this->native->setParent(null);
             $this->native->deleteLater();
@@ -351,6 +357,33 @@ trait QtPrimitive
     protected function nativeHasFocus(): bool
     {
         return $this->qtWindow()->focusTracker()->holder() === $this;
+    }
+
+    /** The menu popupMenu() opened, while it shows; null otherwise. */
+    private ?QtContextMenu $popup = null;
+
+    public function openPopup(): ?QtContextMenu
+    {
+        return $this->popup?->menu()->isVisible() === true ? $this->popup : null;
+    }
+
+    /**
+     * Open $menu at the screen point of ($x, $y) in the native. An owned canvas press ends first. Qt
+     * pops the menu up and returns at once; false, opening nothing, while the window is not shown.
+     */
+    protected function applyPopupMenu(ContextMenuContract $menu, float $x, float $y): bool
+    {
+        $window = $this->qtWindow();
+        if (! $window->native()->isVisible() || ! $this->native->isVisible() || ! $menu instanceof ContextMenu) {
+            return false;
+        }
+        $window->canvasPointer()->interrupt();
+        $global = $this->native->mapToGlobal(new \QPointF($x, $y));
+        $this->popup?->menu()->close();
+        $this->popup = new QtContextMenu($menu, $window->name(), $this->session());
+        $this->popup->popupAt($global->x(), $global->y());
+
+        return true;
     }
 
     protected function qtWindow(): QtWindow

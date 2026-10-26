@@ -199,11 +199,14 @@ final class QtRightClicks
             $primitive = $owners[spl_object_id($widget)] ?? null;
             if ($primitive instanceof TKPrimitive) {
                 $menu = null;
+                $owner = null;
                 for ($at = $primitive; ! is_null($at); $at = $at->parent()) {
                     if (! $at->isEnabled()) {
                         return false;
                     }
-                    $menu ??= $at->contextMenu();
+                    if (is_null($menu) && ! is_null($at->contextMenu())) {
+                        [$menu, $owner] = [$at->contextMenu(), $at];
+                    }
                 }
                 $local = $widget->mapFromGlobal(new QPointF($gx, $gy));
                 [$x, $y] = [$local->x(), $local->y()];
@@ -212,7 +215,8 @@ final class QtRightClicks
                     return false;
                 }
                 $this->menu?->menu()->hide();
-                $this->menu = new QtContextMenu($menu, $this->window->name(), $this->session);
+                // The owner keeps the user's toggle and radio choices: the next open shows them.
+                $this->menu = new QtContextMenu($menu, $this->window->name(), $this->session, $owner);
                 $this->menu->popupAt($gx, $gy);
                 // The menu takes the pointer: a press the canvas owns ends here, with its release.
                 $this->window->canvasPointer()->interrupt();

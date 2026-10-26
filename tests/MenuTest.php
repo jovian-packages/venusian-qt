@@ -9,6 +9,7 @@ use QKeySequence\SequenceFormat;
 use Surface\Windows\Menus\Accelerator;
 use QAction\MenuRole;
 use Surface\Contracts\Windows\Mail\MenuActivated;
+use Surface\Contracts\Windows\Mail\MenuRadioChosen;
 use Surface\Contracts\Windows\Mail\MenuToggled;
 use Surface\Contracts\Windows\Mail\QuitRequested;
 use Surface\Contracts\Windows\WindowException;
@@ -330,4 +331,68 @@ it('gives a key to a menu shortcut before a focused text widget takes it', funct
     expect($watched)->toBe([false, false, false, false, false, false])
         ->and($alone)->toBe([true, true])
         ->and($keys->watching())->toBeTrue();
+});
+
+function caseChecked(QtMenuBar $bar): array
+{
+    return array_map(fn (string $id): bool => $bar->action($id)->isChecked(), ['case.none' => 'case.none', 'case.unimportant' => 'case.unimportant', 'case.all' => 'case.all']);
+}
+
+it('makes a radio group checkable actions in one exclusive group, and sets it without posting', function (): void {
+    $window = driver()->open('main', 320, 200, driver()->profile('choices'));
+    $bar = $window->menuBar();
+
+    expect(caseChecked($bar))->toBe(['case.none' => true, 'case.unimportant' => false, 'case.all' => false])
+        ->and($bar->radioGroup('ignore-case')->checkedAction())->toBe($bar->action('case.none'));
+
+    $window->setRadio('ignore-case', 'case.all');
+
+    expect(caseChecked($bar))->toBe(['case.none' => false, 'case.unimportant' => false, 'case.all' => true])
+        ->and($bar->radioGroup('ignore-case')->checkedAction())->toBe($bar->action('case.all'))
+        ->and($window->radio('ignore-case'))->toBe('case.all')
+        ->and(takeMail(session()))->toBe([])
+        ->and(fn () => $window->setRadio('ignore-case', 'compare.wrap'))->toThrow(WindowException::class, "'compare.wrap' is not in radio group 'ignore-case'.");
+});
+
+it('posts MenuRadioChosen for the user\'s choice, and nothing for the item already on', function (): void {
+    $window = driver()->open('main', 320, 200, driver()->profile('choices'));
+
+    $window->menuBar()->action('case.unimportant')->trigger();
+    $window->menuBar()->action('case.unimportant')->trigger();
+
+    expect(takeMail(session()))->toEqual([new MenuRadioChosen('main', 'ignore-case', 'case.unimportant')])
+        ->and($window->radio('ignore-case'))->toBe('case.unimportant')
+        ->and(caseChecked($window->menuBar()))->toBe(['case.none' => false, 'case.unimportant' => true, 'case.all' => false]);
+});
+
+it('disables one radio item on its own, and relabels an item and a folder', function (): void {
+    $window = driver()->open('main', 320, 200, driver()->profile('choices'));
+
+    $window->setItemEnabled('case.all', false);
+    $window->setItemLabel('case.none', 'Nothing & more');
+    $window->setItemLabel('compare', 'Diff');
+
+    expect($window->menuBar()->action('case.all')->isEnabled())->toBeFalse()
+        ->and($window->menuBar()->action('case.none')->isEnabled())->toBeTrue()
+        ->and($window->menuBar()->action('case.none')->text())->toBe('Nothing && more')
+        ->and($window->itemLabel('case.none'))->toBe('Nothing & more')
+        ->and($window->menuBar()->action('compare')->text())->toBe('Diff')
+        ->and(takeMail(session()))->toBe([]);
+});
+
+it('keeps the default bar\'s radios, toggles and labels in the driver, and in the bar where one shows', function (): void {
+    driver()->setDefaultMenuBar(driver()->profile('choices'));
+    driver()->setRadio('ignore-case', 'case.all');
+    driver()->setToggle('compare.wrap', true);
+    driver()->setItemLabel('compare.wrap', 'Wrap Lines');
+
+    expect(driver()->radio('ignore-case'))->toBe('case.all')
+        ->and(driver()->isToggled('compare.wrap'))->toBeTrue()
+        ->and(driver()->itemLabel('compare.wrap'))->toBe('Wrap Lines');
+    if (QtBridgeDriver::appWideBar()) {
+        expect(caseChecked(driver()->defaultMenuBar())['case.all'])->toBeTrue()
+            ->and(driver()->defaultMenuBar()->action('compare.wrap')->isChecked())->toBeTrue()
+            ->and(driver()->defaultMenuBar()->action('compare.wrap')->text())->toBe('Wrap Lines');
+    }
+    driver()->setDefaultMenuBar(driver()->profile('main'));
 });
