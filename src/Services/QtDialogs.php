@@ -5,15 +5,20 @@ namespace Jovian\Toolkits\Qt\Services;
 use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
 use Jovian\Toolkits\Qt\Bridge\QtSession;
 use Jovian\Toolkits\Qt\Windows\QtWindow;
+use QCheckBox;
 use QDialog;
+use QDir\Filter;
 use QFileDialog;
 use QMainWindow;
 use QMessageBox;
+use QMessageBox\Icon;
 use QMetaObject\Connection;
 use QObject;
 use QPushButton;
 use Qt\WindowModality;
 use Surface\Contracts\Windows\Services\Alert;
+use Surface\Contracts\Windows\Services\AlertStyle;
+use Surface\Contracts\Windows\Services\DialogCapability;
 use Surface\Contracts\Windows\Services\OpenRequest;
 use Surface\Contracts\Windows\Services\SaveRequest;
 use Surface\Contracts\Windows\ToolkitWindow;
@@ -38,11 +43,37 @@ final class QtDialogs extends ToolkitDialogs
         parent::__construct($driver);
     }
 
+    /** macOS shows a window-modal box as a sheet, which has no title bar. */
+    public function supports(DialogCapability $capability): bool
+    {
+        return $capability !== DialogCapability::AlertTitle || PHP_OS_FAMILY !== 'Darwin';
+    }
+
+    /** The QMessageBox or QFileDialog of an open request, or null. */
+    public function native(string $id): QMessageBox|QFileDialog|null
+    {
+        return $this->open[$id]['native'] ?? null;
+    }
+
     protected function showAlert(string $id, ToolkitWindow $parent, Alert $alert): void
     {
         $box = new QMessageBox($this->parentWindow($parent));
         $box->setText(self::literal($alert->message));
         $box->setInformativeText(is_null($alert->detail) ? '' : self::literal($alert->detail));
+        if (! is_null($alert->style)) {
+            $box->setIcon(match ($alert->style) {
+                AlertStyle::Info => Icon::INFORMATION,
+                AlertStyle::Warning => Icon::WARNING,
+                AlertStyle::Critical => Icon::CRITICAL,
+            });
+        }
+        if (! is_null($alert->suppression)) {
+            // The box owns the check box; its label reads & as a mnemonic, as a button's does.
+            $box->setCheckBox(new QCheckBox(self::buttonLabel($alert->suppression)));
+        }
+        if (! is_null($alert->title)) {
+            $box->setWindowTitle($alert->title);
+        }
         /** @var list<QPushButton> $buttons */
         $buttons = array_map(static fn (string $label): QPushButton => $box->addButton(self::buttonLabel($label), QMessageBox\ButtonRole::ACTION_ROLE), $alert->buttons);
         $box->setDefaultButton($buttons[$alert->default]);
@@ -54,7 +85,7 @@ final class QtDialogs extends ToolkitDialogs
         $finished = QObject::connect($box, 'finished(int)', static function (int $result) use ($weak, $id, $box, $buttons, $cancel): void {
             $clicked = $box->clickedButton();
             $index = array_search($clicked, $buttons, true);
-            $weak->get()?->ended($id, $index === false ? $cancel : $index);
+            $weak->get()?->ended($id, $index === false ? $cancel : $index, $box->checkBox()?->isChecked() ?? false);
         });
         $this->open[$id] = ['native' => $box, 'finished' => $finished];
         $box->open();
@@ -62,7 +93,7 @@ final class QtDialogs extends ToolkitDialogs
 
     protected function showOpen(string $id, ToolkitWindow $parent, OpenRequest $request): void
     {
-        $dialog = $this->fileDialog($parent, $request->title, $request->directory);
+        $dialog = $this->fileDialog($parent, $request->title, $request->directory, $request->filters, $request->showHidden);
         $dialog->setFileMode(match (true) {
             $request->folders => QFileDialog\FileMode::DIRECTORY,
             $request->multiple => QFileDialog\FileMode::EXISTING_FILES,
@@ -76,7 +107,7 @@ final class QtDialogs extends ToolkitDialogs
 
     protected function showSave(string $id, ToolkitWindow $parent, SaveRequest $request): void
     {
-        $dialog = $this->fileDialog($parent, $request->title, $request->directory);
+        $dialog = $this->fileDialog($parent, $request->title, $request->directory, $request->filters, $request->showHidden);
         $dialog->setAcceptMode(QFileDialog\AcceptMode::ACCEPT_SAVE);
         if (! is_null($request->name)) {
             $dialog->selectFile($request->name);
@@ -115,18 +146,32 @@ final class QtDialogs extends ToolkitDialogs
      * The dialog finished: let go of it, then answer. An id the parent's close already ended answers nothing.
      * @param int|list<string> $value
      */
-    private function ended(string $id, int|array $value): void
+    private function ended(string $id, int|array $value, bool $suppressed = false): void
     {
         if (is_null($this->release($id))) {
             return;
         }
-        is_int($value) ? $this->answerAlert($id, $value) : $this->answerFiles($id, $value);
+        is_int($value) ? $this->answerAlert($id, $value, $suppressed) : $this->answerFiles($id, $value);
     }
 
-    private function fileDialog(ToolkitWindow $parent, ?string $title, ?string $directory): QFileDialog
+    /**
+     * @param array<string, list<string>> $filters each as 'Name (*.a *.b)'
+     * @param bool $hidden adds QDir's Hidden bit to the dialog's own filter
+     */
+    private function fileDialog(ToolkitWindow $parent, ?string $title, ?string $directory, array $filters, bool $hidden): QFileDialog
     {
         $dialog = new QFileDialog($this->parentWindow($parent), $title ?? '', self::folder($directory) ?? '');
         $dialog->setWindowModality(WindowModality::WINDOW_MODAL);
+        if ($filters !== []) {
+            $dialog->setNameFilters(array_map(
+                static fn (string $name, array $patterns): string => $name . ' (' . implode(' ', $patterns) . ')',
+                array_keys($filters),
+                array_values($filters),
+            ));
+        }
+        if ($hidden) {
+            $dialog->setFilter($dialog->filter() | Filter::HIDDEN->value);
+        }
 
         return $dialog;
     }

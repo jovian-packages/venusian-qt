@@ -1,5 +1,10 @@
 # Log
 
+## 2026-10-27
+
+* No `AlertTitle` on macOS (a window-modal box is a sheet). `QtClipboard::compare()` on window activation posts `ClipboardChanged` when the text or formats differ from the last seen: on macOS a clipboard read swallows Qt's own change report. Needs ext-qt 31fcbaf (`QMimeData::formats`). [windows and menus](architecture/windows-and-menus.md)
+* Services: message box icons from the alert style, the suppression check box (answered as `suppressed`) and the window title; `supports()` gives both capabilities; file dialog name filters and hidden files (`QDir\Filter::HIDDEN` added to the dialog's filter); `QtClipboard` reads text, `hasText()` from `mimeData()`, `ClipboardChanged` from `dataChanged()`. Needs ext-qt 9e06ac5. [windows and menus](architecture/windows-and-menus.md)
+
 ## 2026-10-26
 
 * Canvas keys: `QtCanvasKeys` replaces the canvas's Tab-only filter: `KeyPress` posts `KeyPressed` and `EditCommanded` (the first `QKeySequence\StandardKey` the event matches) or `TextCommitted`; `KeyRelease` posts `KeyReleased`; an `InputMethod` commit posts `TextCommitted` (`WA_InputMethodEnabled` while focusable); a focused canvas takes every key. `QtWindowKeys::keyOf()` and `character()` shared. Needs ext-qt 0312633. [windows and menus](architecture/windows-and-menus.md)

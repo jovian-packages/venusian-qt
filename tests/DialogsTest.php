@@ -8,6 +8,8 @@ use Surface\Contracts\Windows\Mail\Services\FilesChosen;
 use Surface\Contracts\Windows\Mail\WindowCloseRequested;
 use Surface\Contracts\Windows\Mail\WindowClosed;
 use Surface\Contracts\Windows\Services\Alert;
+use Surface\Contracts\Windows\Services\AlertStyle;
+use Surface\Contracts\Windows\Services\DialogCapability;
 use Surface\Contracts\Windows\Services\OpenRequest;
 use Surface\Contracts\Windows\Services\SaveRequest;
 use Surface\Contracts\Windows\WindowException;
@@ -22,7 +24,7 @@ beforeEach(function (): void {
 function dialogMail(): array
 {
     return array_values(array_filter(array_map(fn (object $mail): ?string => match (true) {
-        $mail instanceof AlertAnswered => "alert:{$mail->button}",
+        $mail instanceof AlertAnswered => "alert:{$mail->button}" . ($mail->suppressed ? ':suppressed' : ''),
         $mail instanceof FilesChosen => 'files:' . implode(',', $mail->paths),
         $mail instanceof WindowClosed => "closed:{$mail->window}",
         $mail instanceof WindowCloseRequested => "requested:{$mail->window}",
@@ -160,6 +162,90 @@ it('answers [] when the parent of a file dialog closes, then closes it, and noth
 
     expect(dialogMail())->toBe(['files:', 'closed:main']);
 })->with(['open', 'open several', 'folder', 'save']);
+
+it('sets a message box\'s icon from the alert style', function (?AlertStyle $style, QMessageBox\Icon $icon): void {
+    $main = shownMain();
+    $id = driver()->dialogs()->alert($main, new Alert('Hi', style: $style));
+    pumpFor(0.3);
+
+    expect(driver()->dialogs()->native($id)->icon())->toBe($icon)
+        ->and(driver()->dialogs()->native($id)->checkBox())->toBeNull();
+    $main->close();
+})->with([
+    'plain' => [null, QMessageBox\Icon::NO_ICON],
+    'info' => [AlertStyle::Info, QMessageBox\Icon::INFORMATION],
+    'warning' => [AlertStyle::Warning, QMessageBox\Icon::WARNING],
+    'critical' => [AlertStyle::Critical, QMessageBox\Icon::CRITICAL],
+]);
+
+it('answers whether an alert\'s check box was ticked', function (bool $ticked): void {
+    $main = shownMain();
+    $id = driver()->dialogs()->alert($main, new Alert('Delete?', null, ['Delete', 'Cancel'], style: AlertStyle::Warning, suppression: 'Don\'t ask again'));
+    pumpFor(0.3);
+    $box = driver()->dialogs()->native($id);
+
+    expect($box->checkBox()?->text())->toBe('Don\'t ask again')
+        ->and(driver()->dialogs()->supports(DialogCapability::ShowHidden))->toBeTrue();
+
+    $box->checkBox()->setChecked($ticked);
+    boxKey(Qt\Key::RETURN);
+
+    expect(dialogMail())->toBe([$ticked ? 'alert:0:suppressed' : 'alert:0']);
+    $main->close();
+})->with(['ticked' => true, 'not ticked' => false]);
+
+it('titles an alert', function (): void {
+    $main = shownMain();
+    $id = driver()->dialogs()->alert($main, new Alert('Delete?', title: 'Delete files'));
+    pumpFor(0.3);
+
+    expect(driver()->dialogs()->supports(DialogCapability::AlertTitle))->toBeTrue()
+        ->and(driver()->dialogs()->native($id)->windowTitle())->toBe('Delete files');
+    $main->close();
+})->skip(PHP_OS_FAMILY === 'Darwin', 'macOS shows a window-modal box as a sheet, which has no title bar');
+
+it('has no alert titles on macOS, where a window-modal box is a sheet', function (): void {
+    $main = shownMain();
+
+    expect(driver()->dialogs()->supports(DialogCapability::AlertTitle))->toBeFalse()
+        ->and(fn () => driver()->dialogs()->alert($main, new Alert('Delete?', title: 'Delete files')))->toThrow(WindowException::class, 'title')
+        ->and(driver()->dialogs()->openOn($main))->toBeNull();
+    $main->close();
+})->skip(PHP_OS_FAMILY !== 'Darwin', 'macOS only');
+
+it('answers an alert with a ticked box -1 and not suppressed when the parent closes', function (): void {
+    $main = shownMain();
+    $id = driver()->dialogs()->alert($main, new Alert('Delete?', suppression: 'Don\'t ask again'));
+    pumpFor(0.3);
+    driver()->dialogs()->native($id)->checkBox()->setChecked(true);
+    $main->close();
+    pumpFor(0.6);
+
+    expect(dialogMail())->toBe(['alert:-1', 'closed:main']);
+});
+
+it('gives a file dialog its name filters and shows hidden files', function (string $kind): void {
+    $main = shownMain();
+    $filters = ['Text' => ['*.txt', '*.md'], 'Images' => ['*.png']];
+    $id = $kind === 'open'
+        ? driver()->dialogs()->openFiles($main, new OpenRequest(filters: $filters, showHidden: true))
+        : driver()->dialogs()->saveFile($main, new SaveRequest(filters: $filters, showHidden: true));
+    pumpFor(0.3);
+    $dialog = driver()->dialogs()->native($id);
+
+    expect($dialog->nameFilters())->toBe(['Text (*.txt *.md)', 'Images (*.png)'])
+        ->and($dialog->filter() & QDir\Filter::HIDDEN->value)->toBe(QDir\Filter::HIDDEN->value);
+    $main->close();
+})->with(['open', 'save']);
+
+it('leaves hidden files to Qt without showHidden', function (): void {
+    $main = shownMain();
+    $id = driver()->dialogs()->openFiles($main, new OpenRequest());
+    pumpFor(0.3);
+
+    expect(driver()->dialogs()->native($id)->filter() & QDir\Filter::HIDDEN->value)->toBe(0);
+    $main->close();
+});
 
 it('shows a file dialog for a missing directory', function (): void {
     $main = shownMain();

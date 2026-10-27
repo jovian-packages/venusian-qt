@@ -67,6 +67,8 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
         );
 
         $session = $this->session->connect();
+        // dataChanged() reports another app's copy from the start, not from the app's first clipboard call.
+        $this->clipboard ??= new QtClipboard($session);
         $this->menu_keys ??= new QtMenuKeys();
         $this->button_keys ??= new QtButtonKeys($this);
         $this->keepGlobalBar();
@@ -214,7 +216,7 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
     {
         $this->connect();
 
-        return $this->clipboard ??= new QtClipboard();
+        return $this->clipboard;
     }
 
     public function desktop(): QtDesktop

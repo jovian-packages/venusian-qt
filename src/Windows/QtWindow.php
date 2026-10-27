@@ -488,6 +488,8 @@ class QtWindow implements ToolkitWindow
     protected function filtered(EventType|int $type): void
     {
         if ($type === EventType::WINDOW_ACTIVATE) {
+            // Qt on macOS loses another app's copy once anything read the clipboard: compare the content.
+            $this->driver->clipboard()->compare();
             $this->session->post(new WindowFocused($this->name));
         }
     }
