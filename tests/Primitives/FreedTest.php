@@ -41,6 +41,15 @@ it('frees a removed primitive', function (Closure $build): void {
     'button' => [fn (TKPrimitiveGroup $m) => $m->button('p', 'Go')],
     'image' => [fn (TKPrimitiveGroup $m) => $m->image('p')],
     'canvas' => [fn (TKPrimitiveGroup $m) => $m->canvas('p')],
+    'focused canvas with keys' => [function (TKPrimitiveGroup $m) {
+        $canvas = $m->canvas('p')->minSize(100, 40)->setFocusable();
+        $canvas->focus();
+        pumpFor(0.05);
+        QCoreApplication::sendEvent($canvas->native(), new QKeyEvent(QEvent\Type::KEY_PRESS, Qt\Key::A->value, 0, 'a'));
+        pumpFor(0.05);
+
+        return $canvas;
+    }],
     'separator' => [fn (TKPrimitiveGroup $m) => $m->separator('p')],
     'progress bar' => [fn (TKPrimitiveGroup $m) => $m->progressBar('p', 0.5)],
     'text input' => [fn (TKPrimitiveGroup $m) => $m->textInput('p', 'x')],

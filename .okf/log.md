@@ -1,5 +1,10 @@
 # Log
 
+## 2026-10-26
+
+* Canvas keys: `QtCanvasKeys` replaces the canvas's Tab-only filter: `KeyPress` posts `KeyPressed` and `EditCommanded` (the first `QKeySequence\StandardKey` the event matches) or `TextCommitted`; `KeyRelease` posts `KeyReleased`; an `InputMethod` commit posts `TextCommitted` (`WA_InputMethodEnabled` while focusable); a focused canvas takes every key. `QtWindowKeys::keyOf()` and `character()` shared. Needs ext-qt 0312633. [windows and menus](architecture/windows-and-menus.md)
+* Canvas releases post only after their press; a lone modifier's press carries its modifier and its release does not; a real macOS A (native codes 0, with a timestamp) reads `Key::A`; macOS Control+K and Control+Y post DeleteToLineEnd and Yank. [windows and menus](architecture/windows-and-menus.md)
+
 ## 2026-10-24
 
 * By-eye fix (C11): an image-above button's picture and text touched the macOS bezel (labels on a fixed 4 px margin). The face now lies inside the style's `SE_PushButtonContents` rect, measured at the button's size (twice: macOS draws a tall push button as a bevel with other insets), and the minimum size is content plus those insets. Needs ext-qt ea23fb2.

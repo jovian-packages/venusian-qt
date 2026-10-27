@@ -27,7 +27,8 @@ use WeakReference;
 final class QtWindowKeys
 {
     /** Qt::Key_Shift, Key_Control, Key_Meta, Key_Alt, Key_CapsLock, Key_Super_L, Key_Super_R, Key_Hyper_L, Key_Hyper_R, Key_AltGr */
-    private const array MODIFIERS = [0x01000020, 0x01000021, 0x01000022, 0x01000023, 0x01000024, 0x01000053, 0x01000054, 0x01000056, 0x01000057, 0x01001103];
+    /** Qt::Key_Shift … Key_Hyper_R and Key_AltGr: a modifier pressed alone. Shared with the canvas keys. */
+    public const array MODIFIERS = [0x01000020, 0x01000021, 0x01000022, 0x01000023, 0x01000024, 0x01000053, 0x01000054, 0x01000056, 0x01000057, 0x01001103];
 
     /** Qt::Key_Return, Key_Enter */
     private const array SUBMIT = [0x01000004, 0x01000005];
@@ -72,16 +73,31 @@ final class QtWindowKeys
         if (in_array($event->key(), self::SUBMIT, true) && ($focused instanceof TKTextInput || $focused instanceof TKComboBox)) {
             return false;
         }
-        // macOS key code 0 is A: Qt gives every real macOS key event the scan code 1, and an event made in code both 0.
-        $key = match (true) {
-            PHP_OS_FAMILY !== 'Darwin' => LinuxKeycodes::key($event->nativeScanCode() - 8),
-            $event->nativeScanCode() === 0 && $event->nativeVirtualKey() === 0 => Key::UNKNOWN,
-            default => MacKeycodes::key($event->nativeVirtualKey()),
-        };
-        $text = $event->text();
-        $character = preg_match('/^[^\x00-\x1F\x7F]+$/u', $text) === 1 ? $text : '';
-        $window->session()->post(new WindowKeyPressed($window->name(), $key, $character, QtCanvasPointer::modifiers($event->modifiers()), $event->isAutoRepeat()));
+        $window->session()->post(new WindowKeyPressed($window->name(), self::keyOf($event), self::character($event), QtCanvasPointer::modifiers($event->modifiers()), $event->isAutoRepeat()));
 
         return true;
+    }
+
+    /**
+     * The physical key: LinuxKeycodes of the scan code - 8 on X11, MacKeycodes of the virtual key on
+     * macOS. macOS key code 0 is A: Qt gives every real macOS key event the scan code 1, and an event
+     * made in code both 0, which reads UNKNOWN. Shared with the canvas keys.
+     */
+    public static function keyOf(QKeyEvent $event): Key
+    {
+        return match (true) {
+            PHP_OS_FAMILY !== 'Darwin' => LinuxKeycodes::key($event->nativeScanCode() - 8),
+            // Both native codes 0 on an event with no timestamp: made in code. A real one is kVK_ANSI_A (0).
+            $event->nativeScanCode() === 0 && $event->nativeVirtualKey() === 0 && $event->timestamp() === 0 => Key::UNKNOWN,
+            default => MacKeycodes::key($event->nativeVirtualKey()),
+        };
+    }
+
+    /** The event's text when it is printable, '' otherwise. Shared with the canvas keys. */
+    public static function character(QKeyEvent $event): string
+    {
+        $text = $event->text();
+
+        return preg_match('/^[^\x00-\x1F\x7F]+$/u', $text) === 1 ? $text : '';
     }
 }

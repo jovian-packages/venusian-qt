@@ -11,7 +11,6 @@ use NSLayoutConstraint;
 use NSView;
 use QByteArray;
 use QCoreApplication;
-use QEventFilter;
 use QEventLoop\ProcessEventsFlag;
 use QGridLayout;
 use QImage;
@@ -141,30 +140,32 @@ class QtCanvas extends TKCanvas implements QtNative
         return $this->native;
     }
 
-    /** Keeps Tab and Shift-Tab on the host while the canvas takes them; made on the first applyFocusable(). */
-    private ?QEventFilter $tab_filter = null;
+    /** The keys, commands and committed text of this canvas while focused; its filter keeps Tab while the canvas takes it. Made on the first applyFocusable(). */
+    private ?QtCanvasKeys $keys = null;
+
+    /** The canvas's keys, for tests; null until the canvas was first made focusable. */
+    public function keys(): ?QtCanvasKeys
+    {
+        return $this->keys;
+    }
 
     /**
-     * The host's focus policy: StrongFocus (click and Tab) or NoFocus. A filter on the host, which
-     * runs before QWidget::event moves focus on Tab, eats Tab and Backtab while takesTab() holds.
+     * The host's focus policy: StrongFocus (click and Tab) or NoFocus; input method events while
+     * focusable. The keys filter on the host runs before QWidget::event moves focus on Tab.
      */
     protected function applyFocusable(bool $on, bool $takesTab): void
     {
         $this->native->setFocusPolicy($on ? \Qt\FocusPolicy::STRONG_FOCUS : \Qt\FocusPolicy::NO_FOCUS);
+        // Composed text (dead keys, input methods) comes as QInputMethodEvents only to a widget that asks for them.
+        $this->native->setAttribute(\Qt\WidgetAttribute::INPUT_METHOD_ENABLED, $on);
         // NoFocus leaves a focused widget focused: a canvas that stops taking focus lets go, quietly.
         if (! $on) {
             $this->whileHoldingFocus(fn () => $this->native->clearFocus());
         }
-        if (! is_null($this->tab_filter)) {
+        if (! is_null($this->keys)) {
             return;
         }
-        // The filter holds this canvas weakly: a strong capture would be a cycle through the C++ filter.
-        $self = \WeakReference::create($this);
-        $this->tab_filter = new QEventFilter(static fn (\QObject $watched, \QEvent $event): bool => $event->type() === \QEvent\Type::KEY_PRESS
-            && $event instanceof \QKeyEvent
-            && in_array($event->key(), [\Qt\Key::TAB->value, \Qt\Key::BACKTAB->value], true)
-            && ($self->get()?->takesTab() ?? false));
-        $this->native->installEventFilter($this->tab_filter);
+        $this->keys = new QtCanvasKeys($this, $this->native);
     }
 
     /**
