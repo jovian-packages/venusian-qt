@@ -1,7 +1,7 @@
 {
     "name": "jovian/venusian-qt",
     "description": "Qt 6 toolkit driver for the Venusian Surface bridge: connects PHP to QApplication, opens its windows and builds their menu bars through ext-qt.",
-    "version": "0.10.5",
+    "version": "0.11.0",
     "type": "library",
     "keywords": [
         "framework",
@@ -13,7 +13,7 @@
         "linux"
     ],
     "license": "MIT",
-    "homepage": "https://venusian.projectsaturnstudios.com/ecosystem/jovian/venusian-qt/0.10.x",
+    "homepage": "https://venusian.projectsaturnstudios.com/ecosystem/jovian/venusian-qt/0.11.x",
     "support": {
         "issues": "https://github.com/jovian-packages/venusian-qt/issues",
         "source": "https://github.com/jovian-packages/venusian-qt"
@@ -25,26 +25,26 @@
         }
     ],
     "require": {
-        "php": "^8.4|^8.5|^8.6",
-        "ext-qt": "^0.10.5",
-        "venusian-surface/bridge": "^0.10.0",
-        "venusian-surface/contracts": "^0.10.5",
-        "venusian-surface/human-input": "^0.10.1",
-        "venusian-surface/windows": "^0.10.5",
-        "venusian-voyager/nuts-and-bolts": "^0.10.1"
+        "php": "~8.4.27||^8.5.12",
+        "ext-qt": "^0.11.0",
+        "venusian-surface/bridge": "^0.11.0",
+        "venusian-surface/contracts": "^0.11.0",
+        "venusian-surface/human-input": "^0.11.0",
+        "venusian-surface/windows": "^0.11.0",
+        "venusian-voyager/nuts-and-bolts": "^0.11.0"
     },
     "require-dev": {
-        "jovian/venusian-vulkan": "^0.10.0",
+        "jovian/venusian-vulkan": "^0.11.0",
         "pestphp/pest": "^4",
-        "venusian-surface/drawing": "^0.10.0",
-        "venusian-surface/fonts": "^0.10.0",
-        "venusian-voyager/config": "^0.10.1",
-        "venusian-voyager/vessel": "^0.10.1"
+        "venusian-surface/drawing": "^0.11.0",
+        "venusian-surface/fonts": "^0.11.0",
+        "venusian-voyager/config": "^0.11.0",
+        "venusian-voyager/vessel": "^0.11.0"
     },
     "suggest": {
-        "jovian/venusian-metal": "^0.10.0",
-        "jovian/venusian-opengl": "^0.10.0",
-        "jovian/venusian-sdl3": "^0.10.0",
+        "jovian/venusian-metal": "^0.11.0",
+        "jovian/venusian-opengl": "^0.11.0",
+        "jovian/venusian-sdl3": "^0.11.0",
         "ext-appkit": "On macOS, lends a Metal layer to the 'metal' rendering engine: the layer Qt makes for a Metal QWindow is reached through ext-appkit.",
         "ext-metal": "With ext-appkit, the 'metal' engine (jovian/venusian-metal) draws into a canvas.",
         "ext-opengl": "A canvas lends its QOpenGLWidget's context to the 'opengl' rendering engine (jovian/venusian-opengl) when ext-opengl is loaded.",
@@ -69,7 +69,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "0.10.x-dev"
+            "dev-main": "0.11.x-dev"
         },
         "venusian": {
             "providers": [

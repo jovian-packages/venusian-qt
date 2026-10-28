@@ -1,5 +1,10 @@
 # Log
 
+## 2026-10-28
+
+* **Version**: 0.11.0 with the Venusian 0.11 ecosystem: `dev-main` → `0.11.x-dev`, `version` 0.11.0, its extensions, `venusian-surface/*`, `venusian-voyager/*` and the jovian siblings at `^0.11.0`, PHP `~8.4.27||^8.5.12`, homepage `0.11.x`. No API change. 371 to 376 passed, 21 skipped on Homebrew PHP 8.4 NTS and ZTS (focus- and timing-sensitive rows vary run to run; 71 of 71 on a quiet ZTS rerun of those files); 363 passed, 34 skipped, 3 failed on the Pi (8.4 ZTS).
+* **Open — PRIMARY selection on Linux**: on the Pi three `ComboBoxTest` rows ("chooses the highlighted completion", "replaces shown rows with nothing", "hides on Escape") receive `ClipboardChanged` mail they do not expect, every run; completion selecting line-edit text sets the PRIMARY selection, and the driver reports it as a clipboard change.
+
 ## 2026-10-27
 
 * No `AlertTitle` on macOS (a window-modal box is a sheet). `QtClipboard::compare()` on window activation posts `ClipboardChanged` when the text or formats differ from the last seen: on macOS a clipboard read swallows Qt's own change report. Needs ext-qt 31fcbaf (`QMimeData::formats`). [windows and menus](architecture/windows-and-menus.md)
