@@ -1,5 +1,13 @@
 # Log
 
+## 2026-11-05
+
+* Fix (X11): a text area's font change posted ViewScrolled for the scroll clamp its relayout makes. On X11 the viewport's paint, which lays the text out again, waits for the X server's configure reply (the new font changes the window's size constraints), so no posted event sent inside the write reaches it. The area now holds the clamp as code-driven until the viewport has painted (a `PAINT` in the viewport filter, cleared a turn later, which also rebuilds the last line's rows). A user scroll in that interval posts nothing. Tests: the font-change test waits for the scroll bars to move; the wrapped-line test narrows the window until the last row starts elsewhere (the gaming PC's font put it at the same column at 300 and 220 px). Both rows failed on the gaming PC since C14; both pass there and on the Mac now.
+
+## 2026-11-04
+
+* Native text: `QtFonts` (`Primitives/Concerns`) turns a FontSpec into the QFont the style sheet asks for (family, or the system's general or fixed family; CSS weight; italic; point size) and measures it with `QFontMetricsF` and `QFontInfo`; the driver's `fontMetrics()` connects first (font classes need the QApplication). Style sheet `font-style: italic`. Text areas: run extra selections carry `FONT_WEIGHT` 700, `FONT_ITALIC`, `TEXT_UNDERLINE_STYLE` 1 (single) and `FONT_STRIKE_OUT` by property id; `setTabStopDistance` at columns × the space advance, re-set on a font change; alignment through the document's default `QTextOption`. Inputs: `setAlignment`. Buttons: style sheet `text-align`. `QtPrimitive::textAlignmentFlags()` (horizontal flag with `V_CENTER`) shared by labels and inputs. Needs ext-qt ded4ede (int properties stored as `QMetaType::Int`, read by `intProperty`).
+
 ## 2026-10-28
 
 * **Version**: 0.11.0 with the Venusian 0.11 ecosystem: `dev-main` → `0.11.x-dev`, `version` 0.11.0, its extensions, `venusian-surface/*`, `venusian-voyager/*` and the jovian siblings at `^0.11.0`, PHP `~8.4.27||^8.5.12`, homepage `0.11.x`. No API change. 371 to 376 passed, 21 skipped on Homebrew PHP 8.4 NTS and ZTS (focus- and timing-sensitive rows vary run to run; 71 of 71 on a quiet ZTS rerun of those files); 363 passed, 34 skipped, 3 failed on the Pi (8.4 ZTS).

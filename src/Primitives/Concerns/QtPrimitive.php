@@ -23,6 +23,7 @@ use Surface\Contracts\Windows\Primitives\Align;
 use Surface\Contracts\Windows\Primitives\TKPrimitive;
 use Surface\Contracts\Windows\Styling\FontSpec;
 use Surface\Contracts\Windows\WindowException;
+use Surface\Contracts\Windows\Styling\TextAlignment;
 use Surface\NutsAndBolts\Color;
 use Surface\Windows\Menus\ContextMenu;
 
@@ -259,6 +260,7 @@ trait QtPrimitive
         $family = $font->family ?? ($font->monospace ? \QFontDatabase::systemFont(\QFontDatabase\SystemFont::FIXED_FONT)->family() : null);
         $this->setStyle('font-size', "{$font->size}pt");
         $this->setStyle('font-weight', (string) $font->weight->toCssWeight());
+        $this->setStyle('font-style', $font->italic ? 'italic' : null);
         $this->setStyle('font-family', is_null($family) ? null : '"'.addcslashes($family, '"\\').'"');
     }
 
@@ -270,6 +272,18 @@ trait QtPrimitive
     protected function applyTextColor(?Color $color): void
     {
         $this->setStyle('color', $color?->toCss());
+    }
+
+    /** The alignment flags, centred vertically, as Qt::Alignment's int. */
+    protected static function textAlignmentFlags(TextAlignment $alignment): int
+    {
+        $horizontal = match ($alignment) {
+            TextAlignment::LEFT => AlignmentFlag::LEFT,
+            TextAlignment::CENTER => AlignmentFlag::H_CENTER,
+            TextAlignment::RIGHT => AlignmentFlag::RIGHT,
+        };
+
+        return $horizontal->value | AlignmentFlag::V_CENTER->value;
     }
 
     protected function nativeSize(): array

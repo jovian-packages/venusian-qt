@@ -5,7 +5,6 @@ namespace Jovian\Toolkits\Qt\Primitives;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QLabel;
-use Qt\AlignmentFlag;
 use Qt\TextFormat;
 use Surface\Contracts\Windows\Primitives\Placement;
 use Surface\Contracts\Windows\Styling\TextAlignment;
@@ -46,11 +45,6 @@ class QtLabel extends TKLabel implements QtNative
      */
     protected function applyAlignment(TextAlignment $alignment): void
     {
-        $horizontal = match ($alignment) {
-            TextAlignment::LEFT => AlignmentFlag::LEFT,
-            TextAlignment::CENTER => AlignmentFlag::H_CENTER,
-            TextAlignment::RIGHT => AlignmentFlag::RIGHT,
-        };
-        $this->native()->setAlignment($horizontal->value | AlignmentFlag::V_CENTER->value);
+        $this->native()->setAlignment(self::textAlignmentFlags($alignment));
     }
 }

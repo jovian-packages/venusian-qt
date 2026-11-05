@@ -115,10 +115,16 @@ it('covers every row of a wrapped line with its background, the text\'s last lin
         ->and([$selections[2]->cursor->anchor(), $selections[2]->cursor->position()])->toBe([$end, $end])
         ->and($selections[2]->format->boolProperty(QTextFormat::FULL_WIDTH_SELECTION))->toBeTrue();
 
+    // Narrower until the last row starts elsewhere: where it starts depends on the font's widths.
     $was = $span($selections[1]);
-    $window->native()->resize(220, 400);
-    expect(settled($area))->toBeTrue();
-    $rows = rowStarts($edit, $tail);
+    foreach ([220, 200, 180, 160, 140] as $width) {
+        $window->native()->resize($width, 400);
+        expect(settled($area))->toBeTrue();
+        $rows = rowStarts($edit, $tail);
+        if ($rows[count($rows) - 1] !== $was[1]) {
+            break;
+        }
+    }
     $selections = $edit->extraSelections();
 
     expect($span($selections[1]))->toBe([$tail, $rows[count($rows) - 1]])
@@ -274,6 +280,11 @@ it('posts no ViewScrolled for the scroll a font change makes', function (): void
     $before = [$horizontal->value(), $vertical->value()];
 
     $area->setFont(new FontSpec(9.0, monospace: true));
+    // On X11 the relayout waits for the X server's reply: two quiet pumps can come before it.
+    $until = microtime(true) + 3.0;
+    while ([$horizontal->value(), $vertical->value()] === $before && microtime(true) < $until) {
+        pumpFor(0.01);
+    }
 
     expect(settled($area))->toBeTrue()
         ->and([$horizontal->value(), $vertical->value()])->not->toBe($before)

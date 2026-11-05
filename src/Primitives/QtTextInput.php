@@ -11,6 +11,7 @@ use QSizePolicy\Policy;
 use Surface\Contracts\Windows\Mail\View\TextChanged;
 use Surface\Contracts\Windows\Mail\View\TextSubmitted;
 use Surface\Contracts\Windows\Primitives\Placement;
+use Surface\Contracts\Windows\Styling\TextAlignment;
 use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\Windows\Primitives\TKPrimitiveGroup;
 use Surface\Windows\Primitives\TKTextInput;
@@ -55,6 +56,11 @@ class QtTextInput extends TKTextInput implements QtNative
     protected function applyValue(string $value): void
     {
         $this->applying(fn () => $this->native()->setText($value));
+    }
+
+    protected function applyAlignment(TextAlignment $alignment): void
+    {
+        $this->native()->setAlignment(self::textAlignmentFlags($alignment));
     }
 
     protected function applyPlaceholder(?string $placeholder): void

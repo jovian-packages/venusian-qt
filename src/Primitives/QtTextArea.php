@@ -3,6 +3,7 @@
 namespace Jovian\Toolkits\Qt\Primitives;
 
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
+use Jovian\Toolkits\Qt\Primitives\Concerns\QtFonts;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QBrush;
 use QColor;
@@ -21,12 +22,14 @@ use QTextCursor\MoveMode;
 use QTextCursor\MoveOperation;
 use QTextEdit\ExtraSelection;
 use QTextFormat;
+use QTextLayout\FormatRange;
 use QTimer;
 use Surface\Contracts\Windows\Mail\View\TextChanged;
 use Surface\Contracts\Windows\Mail\View\ViewScrolled;
 use Surface\Contracts\Windows\Primitives\Placement;
 use Surface\Contracts\Windows\Styling\FontSpec;
 use Surface\Contracts\Windows\Styling\ScrollPosition;
+use Surface\Contracts\Windows\Styling\TextAlignment;
 use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\NutsAndBolts\Color;
 use Surface\Windows\Primitives\TKPrimitiveGroup;
@@ -35,7 +38,8 @@ use WeakReference;
 
 /**
  * A QPlainTextEdit. Line backgrounds and range colours are extra selections, painted over the
- * document without changing it or its undo stack: lines first, ranges on top. A line background
+ * document without changing it or its undo stack: lines first, ranges on top. Bold and italic runs
+ * are formats of their block's layout, which Qt shapes with the text. A line background
  * is a FullWidthSelection through the line's newline, which covers every row it wraps to. The
  * text's last line has no newline: it is a span to the start of its last row plus a collapsed
  * FullWidthSelection at the text's end, rebuilt whenever its rows change (the user's edits, the
@@ -72,6 +76,18 @@ class QtTextArea extends TKTextArea implements QtNative
     /** Sees the viewport resize: its width is the one the text wraps to. */
     private readonly QEventFilter $viewport_filter;
 
+    /** Lines whose block layout carries bold or italic runs, cleared by the next range styles. */
+    private array $layout_lines = [];
+
+    /**
+     * A font change lays the text out again at the viewport's next paint: inside the write on
+     * macOS, after the X server's configure reply on X11. Until that paint has run, the scroll
+     * clamp it makes is the write's, not the user's.
+     */
+    private bool $relayout_pending = false;
+
+    private bool $relayout_closing = false;
+
     public function __construct(string $name, ToolkitWindow $window, ?TKPrimitiveGroup $parent, Placement $placement, string $value)
     {
         parent::__construct($name, $window, $parent, $placement, $value);
@@ -96,6 +112,8 @@ class QtTextArea extends TKTextArea implements QtNative
         $this->viewport_filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
             if ($event->type() === EventType::RESIZE) {
                 $self->get()?->viewportResized();
+            } elseif ($event->type() === EventType::PAINT) {
+                $self->get()?->viewportPainting();
             }
 
             return false;
@@ -134,15 +152,34 @@ class QtTextArea extends TKTextArea implements QtNative
     /**
      * The style-sheet font, applied as a code-driven write. The edit lays its text out again in
      * the window's next paint, and that relayout clamps the scroll bars: the window's pending
-     * update request is sent inside the write, so the clamp is not taken for the user's scroll.
+     * update request is sent inside the write (on macOS that paint runs then). On X11 the paint
+     * waits for the X server, so the clamp is held as code-driven until the viewport has painted.
      */
     protected function applyFont(FontSpec $font): void
     {
+        $this->relayout_pending = true;
         $this->applying(function () use ($font): void {
             $this->styleFont($font);
             QCoreApplication::sendPostedEvents($this->qtWindow()->native(), EventType::UPDATE_REQUEST->value);
             $this->rebuildTail();
         });
+        $this->applyTabWidth($this->tab_width);
+    }
+
+    /** Tab stops every columns × the font's space advance: read from the FontSpec, since the style sheet applies at the next polish. */
+    protected function applyTabWidth(int $columns): void
+    {
+        $font = is_null($this->font) ? $this->native()->font() : QtFonts::qFont($this->font);
+        $this->native()->setTabStopDistance($columns * QtFonts::spaceAdvance($font));
+    }
+
+    /** The document's default option, copied and given the alignment: QPlainTextEdit keeps its wrap mode there. */
+    protected function applyAlignment(TextAlignment $alignment): void
+    {
+        $document = $this->native()->document();
+        $option = $document->defaultTextOption();
+        $option->setAlignment(self::textAlignmentFlags($alignment));
+        $document->setDefaultTextOption($option);
     }
 
     protected function applyReadOnly(bool $read_only): void
@@ -199,11 +236,14 @@ class QtTextArea extends TKTextArea implements QtNative
         $document = $this->native()->document();
         $lines = $this->lines();
         $selections = [];
+        $ranges = [];
         foreach ($styles as $style) {
             $start = $lines->utf16Start($style->line);
+            $from = $lines->utf16Column($style->line, $style->start);
+            $to = $lines->utf16Column($style->line, $style->start + $style->length);
             $cursor = new QTextCursor($document);
-            $cursor->setPosition($start + $lines->utf16Column($style->line, $style->start));
-            $cursor->setPosition($start + $lines->utf16Column($style->line, $style->start + $style->length), MoveMode::KEEP_ANCHOR);
+            $cursor->setPosition($start + $from);
+            $cursor->setPosition($start + $to, MoveMode::KEEP_ANCHOR);
             $format = new QTextCharFormat();
             if (! is_null($style->foreground)) {
                 $format->setForeground(new QBrush(self::qColor($style->foreground)));
@@ -211,10 +251,44 @@ class QtTextArea extends TKTextArea implements QtNative
             if (! is_null($style->background)) {
                 $format->setBackground(new QBrush(self::qColor($style->background)));
             }
+            // An extra selection is drawn over text already laid out, so weight and italic go to the block's layout.
+            if ($style->bold || $style->italic) {
+                $face = new QTextCharFormat();
+                if ($style->bold) {
+                    $face->setProperty(QTextFormat::FONT_WEIGHT, 700);
+                }
+                if ($style->italic) {
+                    $face->setProperty(QTextFormat::FONT_ITALIC, true);
+                }
+                $ranges[$style->line][] = new FormatRange($from, $to - $from, $face);
+            }
+            if ($style->underline) {
+                $format->setProperty(QTextFormat::TEXT_UNDERLINE_STYLE, 1);   // QTextCharFormat::SingleUnderline
+            }
+            if ($style->strikeout) {
+                $format->setProperty(QTextFormat::FONT_STRIKE_OUT, true);
+            }
             $selections[] = new ExtraSelection($cursor, $format);
         }
         $backgrounds = array_slice($this->native()->extraSelections(), 0, $this->line_selections);
         $this->native()->setExtraSelections([...$backgrounds, ...$selections]);
+
+        // shortcut: layout formats stay at their columns through the user's edits, unlike extra selections; restyle after edits.
+        $relaid = $this->layout_lines + $ranges;
+        $this->layout_lines = $ranges;
+        if ($relaid === []) {
+            return;
+        }
+        // A wider face can rewrap its line: relaid out like a font change.
+        $this->applying(function () use ($document, $relaid, $ranges): void {
+            foreach ($relaid as $line => $_) {
+                $block = $document->findBlockByNumber($line);
+                $block->layout()?->setFormats($ranges[$line] ?? []);
+                $document->markContentsDirty($block->position(), $block->length());
+            }
+            QCoreApplication::sendPostedEvents($this->qtWindow()->native(), EventType::UPDATE_REQUEST->value);
+            $this->rebuildTail();
+        });
     }
 
     protected function applySelectLines(int $first, int $last): void
@@ -280,7 +354,7 @@ class QtTextArea extends TKTextArea implements QtNative
 
     protected function scrolled(): void
     {
-        if (! $this->handling() || ! $this->watching_scroll) {
+        if (! $this->handling() || $this->relayout_pending || ! $this->watching_scroll) {
             return;
         }
         $this->session()->postLatest(
@@ -293,6 +367,27 @@ class QtTextArea extends TKTextArea implements QtNative
      * The viewport changed size: once the edit has relaid the text out to it, the last line's
      * rows are rebuilt.
      */
+    /** The filter sees the paint before the edit's relayout in it: the pending relayout ends a turn of the event loop later. */
+    private function viewportPainting(): void
+    {
+        if (! $this->relayout_pending || $this->relayout_closing) {
+            return;
+        }
+        $this->relayout_closing = true;
+        $self = WeakReference::create($this);
+        QTimer::singleShot(0, static function () use ($self): void {
+            $area = $self->get();
+            if (is_null($area)) {
+                return;
+            }
+            $area->relayout_pending = false;
+            $area->relayout_closing = false;
+            if (! $area->removed) {
+                $area->rebuildTail();
+            }
+        });
+    }
+
     private function viewportResized(): void
     {
         if (is_null($this->tail_start) || $this->tail_pending) {

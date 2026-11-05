@@ -11,6 +11,7 @@ use QSizePolicy\Policy;
 use Surface\Contracts\Windows\Mail\View\ButtonClicked;
 use Surface\Contracts\Windows\Primitives\ButtonRole;
 use Surface\Contracts\Windows\Primitives\Placement;
+use Surface\Contracts\Windows\Styling\TextAlignment;
 use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\NutsAndBolts\Color;
 use Surface\Windows\Primitives\TKButton;
@@ -52,5 +53,11 @@ class QtButton extends TKButton implements QtNative
     protected function applyRole(?ButtonRole $role): void
     {
         $this->native()->setDefault($role === ButtonRole::DEFAULT);
+    }
+
+    /** QPushButton has no alignment property: the style sheet's text-align places its label. */
+    protected function applyAlignment(TextAlignment $alignment): void
+    {
+        $this->setStyle('text-align', $alignment->value);
     }
 }

@@ -3,6 +3,7 @@
 namespace Jovian\Toolkits\Qt\Bridge;
 
 use Jovian\Toolkits\Qt\Contracts\Bridge\QtBridgeDriver as BridgeContract;
+use Jovian\Toolkits\Qt\Primitives\Concerns\QtFonts;
 use Jovian\Toolkits\Qt\Services\QtClipboard;
 use Jovian\Toolkits\Qt\Services\QtDesktop;
 use Jovian\Toolkits\Qt\Services\QtDialogs;
@@ -14,6 +15,8 @@ use QMenuBar;
 use Surface\Bridge\ToolkitBridgeDriver;
 use Surface\Contracts\Bridge\BridgeException;
 use Surface\Contracts\Windows\Menus\MenuProfile as MenuProfileContract;
+use Surface\Contracts\Windows\Styling\FontMetrics;
+use Surface\Contracts\Windows\Styling\FontSpec;
 use Surface\Contracts\Windows\ToolkitWindow;
 use Surface\Contracts\Windows\ToolkitWindowDriver;
 use Surface\Contracts\Windows\WindowException;
@@ -222,6 +225,14 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
     public function desktop(): QtDesktop
     {
         return $this->desktop ??= new QtDesktop();
+    }
+
+    /** Qt's font database needs the QApplication: the session connects first. */
+    public function fontMetrics(FontSpec $font): FontMetrics
+    {
+        $this->connect();
+
+        return QtFonts::metrics($font);
     }
 
     public function has(string $name): bool
