@@ -45,6 +45,7 @@
         "jovian/venusian-metal": "^0.11.0",
         "jovian/venusian-opengl": "^0.11.0",
         "jovian/venusian-sdl3": "^0.11.0",
+        "ext-ffi": "On macOS, with QT_VULKAN_LIB set, finds the Vulkan loader ext-vulkan uses so Qt can be checked against the same one.",
         "ext-appkit": "On macOS, lends a Metal layer to the 'metal' rendering engine: the layer Qt makes for a Metal QWindow is reached through ext-appkit.",
         "ext-metal": "With ext-appkit, the 'metal' engine (jovian/venusian-metal) draws into a canvas.",
         "ext-opengl": "A canvas lends its QOpenGLWidget's context to the 'opengl' rendering engine (jovian/venusian-opengl) when ext-opengl is loaded.",

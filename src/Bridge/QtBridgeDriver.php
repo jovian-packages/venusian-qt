@@ -7,6 +7,7 @@ use Jovian\Toolkits\Qt\Primitives\Concerns\QtFonts;
 use Jovian\Toolkits\Qt\Services\QtClipboard;
 use Jovian\Toolkits\Qt\Services\QtDesktop;
 use Jovian\Toolkits\Qt\Services\QtDialogs;
+use Jovian\Toolkits\Qt\Services\QtSystemAccent;
 use Jovian\Toolkits\Qt\Windows\QtButtonKeys;
 use Jovian\Toolkits\Qt\Windows\QtMenuBar;
 use Jovian\Toolkits\Qt\Windows\QtMenuKeys;
@@ -48,6 +49,8 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
     protected ?QtClipboard $clipboard = null;
 
     protected ?QtDesktop $desktop = null;
+
+    protected ?QtSystemAccent $systemAccent = null;
 
     /** Gives keys to menu shortcuts before a focused text widget; made on the first connect. */
     protected ?QtMenuKeys $menu_keys = null;
@@ -225,6 +228,14 @@ class QtBridgeDriver extends ToolkitBridgeDriver implements BridgeContract, Tool
     public function desktop(): QtDesktop
     {
         return $this->desktop ??= new QtDesktop();
+    }
+
+    /** The palette is the application's: the session connects first. */
+    public function systemAccent(): QtSystemAccent
+    {
+        $this->connect();
+
+        return $this->systemAccent ??= new QtSystemAccent();
     }
 
     /** Qt's font database needs the QApplication: the session connects first. */

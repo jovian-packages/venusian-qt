@@ -4,10 +4,11 @@ namespace Jovian\Toolkits\Qt\Primitives;
 
 use CALayer;
 use CAMetalLayer;
-use CGSize;
+use FFI;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use NSLayoutConstraint;
+use NSSize;
 use NSView;
 use QByteArray;
 use QCoreApplication;
@@ -545,16 +546,42 @@ class QtCanvas extends TKCanvas implements QtNative
      */
     private static function sameLoader(): bool
     {
-        if (! function_exists('vk_loader_path')) {
+        if (! extension_loaded('vulkan')) {
             return false;
         }
         $named = getenv('QT_VULKAN_LIB');
         if ($named === false || $named === '') {
             return PHP_OS_FAMILY !== 'Darwin';
         }
-        $ours = vk_loader_path();
+        $ours = self::loaderPath();
 
         return ! is_null($ours) && realpath($named) !== false && realpath($named) === realpath($ours);
+    }
+
+    /** The file of the Vulkan loader loaded into this process (ext-vulkan's), or null. */
+    private static function loaderPath(): ?string
+    {
+        $images = [];
+        if (PHP_OS_FAMILY === 'Darwin') {
+            if (! extension_loaded('ffi')) {
+                return null;
+            }
+            $dyld = FFI::cdef('uint32_t _dyld_image_count(void); const char *_dyld_get_image_name(uint32_t);');
+            for ($i = 0, $n = $dyld->_dyld_image_count(); $i < $n; $i++) {
+                $images[] = $dyld->_dyld_get_image_name($i);
+            }
+        } else {
+            foreach (@file('/proc/self/maps', FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+                $images[] = substr($line, (int) strpos($line, '/'));
+            }
+        }
+        foreach ($images as $image) {
+            if (preg_match('~/libvulkan[.\d]*\.(so|dylib)[.\d]*$~', $image) === 1) {
+                return $image;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -753,7 +780,7 @@ class QtCanvas extends TKCanvas implements QtNative
         }
         // SDL sizes the drawable only when its window's pixel size changes; the canvas can change size inside an unchanged window.
         [$width, $height] = $this->pixelSize();
-        CAMetalLayer::fromPointer($this->sdl_view->layer()->pointer())->setDrawableSize(new CGSize((float) $width, (float) $height));
+        CAMetalLayer::fromPointer($this->sdl_view->layer()->pointer())->setDrawableSize(new NSSize((float) $width, (float) $height));
     }
 
     /**
