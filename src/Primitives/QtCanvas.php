@@ -4,7 +4,6 @@ namespace Jovian\Toolkits\Qt\Primitives;
 
 use CALayer;
 use CAMetalLayer;
-use FFI;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use NSLayoutConstraint;
@@ -539,49 +538,30 @@ class QtCanvas extends TKCanvas implements QtNative
 
     /**
      * Qt resolves its Vulkan calls through the loader it loads itself: QT_VULKAN_LIB, else the
-     * system's by name. A VkInstance from ext-vulkan is valid only in the loader that made it, so
-     * a QT_VULKAN_LIB that names another file is refused; unset, the name resolves to the system
-     * loader ext-vulkan links on Linux, and to nothing on macOS (Homebrew's lies outside dyld's
-     * search path).
+     * loader's default name. A VkInstance from ext-vulkan is valid only in the loader that made it,
+     * so Qt's loader must be ext-vulkan's: the name Qt would load is opened with ext-posi's dlopen()
+     * and both sides give the address of vkGetInstanceProcAddr, which is one address only in one
+     * loader. A name that does not open is a loader Qt cannot load either (on macOS Homebrew's
+     * lies outside dyld's search path, so unset there means refused).
      */
     private static function sameLoader(): bool
     {
-        if (! extension_loaded('vulkan')) {
+        if (! extension_loaded('vulkan') || ! extension_loaded('posi') || ! function_exists('vkGetInstanceProcAddr')) {
             return false;
         }
         $named = getenv('QT_VULKAN_LIB');
-        if ($named === false || $named === '') {
-            return PHP_OS_FAMILY !== 'Darwin';
+        $name = ($named === false || $named === '') ? (PHP_OS_FAMILY === 'Darwin' ? 'libvulkan.1.dylib' : 'libvulkan.so.1') : $named;
+        $handle = dlopen($name, RTLD_LAZY | RTLD_LOCAL);
+        if ($handle === false) {
+            return false;
         }
-        $ours = self::loaderPath();
-
-        return ! is_null($ours) && realpath($named) !== false && realpath($named) === realpath($ours);
-    }
-
-    /** The file of the Vulkan loader loaded into this process (ext-vulkan's), or null. */
-    private static function loaderPath(): ?string
-    {
-        $images = [];
-        if (PHP_OS_FAMILY === 'Darwin') {
-            if (! extension_loaded('ffi')) {
-                return null;
-            }
-            $dyld = FFI::cdef('uint32_t _dyld_image_count(void); const char *_dyld_get_image_name(uint32_t);');
-            for ($i = 0, $n = $dyld->_dyld_image_count(); $i < $n; $i++) {
-                $images[] = $dyld->_dyld_get_image_name($i);
-            }
-        } else {
-            foreach (@file('/proc/self/maps', FILE_IGNORE_NEW_LINES) ?: [] as $line) {
-                $images[] = substr($line, (int) strpos($line, '/'));
-            }
-        }
-        foreach ($images as $image) {
-            if (preg_match('~/libvulkan[.\d]*\.(so|dylib)[.\d]*$~', $image) === 1) {
-                return $image;
-            }
+        try {
+            $theirs = dlsym($handle, 'vkGetInstanceProcAddr');
+        } finally {
+            dlclose($handle);
         }
 
-        return null;
+        return $theirs !== 0 && $theirs === vkGetInstanceProcAddr(null, 'vkGetInstanceProcAddr');
     }
 
     /**

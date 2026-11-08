@@ -1,5 +1,11 @@
 # Log
 
+## 2026-11-08
+
+* `QtCanvas::sameLoader()` compares loaders by address: ext-posi `dlopen()` of the name Qt would load, `dlsym('vkGetInstanceProcAddr')` against ext-vulkan's `vkGetInstanceProcAddr(null, ...)`. `loaderPath()`, the `/proc/self/maps` read and the `vkGetLoaderPath()` ask are gone. Needs ext-vulkan's `vkGetInstanceProcAddr` (bindings list D; not yet bound, so the lend is refused until it is) and ext-posi 8da2c36. Not run: the Qt suite needs a Qt display.
+
+* `QtCanvas` finds ext-vulkan's loader through ext-posi and ext-vulkan alone (see the entry above): Linux and macOS take the same path, and `composer.json` suggests ext-posi. Not run: the Qt suite needs a Qt display.
+
 ## 2026-11-05
 
 * Fix (X11): a text area's font change posted ViewScrolled for the scroll clamp its relayout makes. On X11 the viewport's paint, which lays the text out again, waits for the X server's configure reply (the new font changes the window's size constraints), so no posted event sent inside the write reaches it. The area now holds the clamp as code-driven until the viewport has painted (a `PAINT` in the viewport filter, cleared a turn later, which also rebuilds the last line's rows). A user scroll in that interval posts nothing. Tests: the font-change test waits for the scroll bars to move; the wrapped-line test narrows the window until the last row starts elsewhere (the gaming PC's font put it at the same column at 300 and 220 px). Both rows failed on the gaming PC since C14; both pass there and on the Mac now.
