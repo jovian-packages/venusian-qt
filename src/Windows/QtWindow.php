@@ -77,6 +77,8 @@ class QtWindow implements ToolkitWindow
 
     protected QtRightClicks $right_clicks;
 
+    protected QtGroupClicks $group_clicks;
+
     protected QtCanvasClicks $canvas_clicks;
 
     protected QtCanvasPointer $canvas_pointer;
@@ -160,6 +162,7 @@ class QtWindow implements ToolkitWindow
         // Deleted any other way (a parent, the application going): the same close path.
         QObject::connect($this->window, 'destroyed(QObject*)', fn () => $this->closed());
         $this->right_clicks = new QtRightClicks($this, $this->window, $this->central, $session);
+        $this->group_clicks = new QtGroupClicks($this, $session);
         $this->canvas_clicks = new QtCanvasClicks($this, $session);
         $this->canvas_pointer = new QtCanvasPointer($this, $session);
         $this->focus = new QtFocus($this);
@@ -387,6 +390,12 @@ class QtWindow implements ToolkitWindow
         return $this->right_clicks;
     }
 
+    /** The window's clicks on clickable groups, posted as mail. */
+    public function groupClicks(): QtGroupClicks
+    {
+        return $this->group_clicks;
+    }
+
     /** The window's canvas clicks, posted as mail. */
     public function canvasClicks(): QtCanvasClicks
     {
@@ -537,6 +546,7 @@ class QtWindow implements ToolkitWindow
         }
 
         $this->right_clicks->detach();
+        $this->group_clicks->detach();
         $this->canvas_clicks->detach();
         $this->canvas_pointer->detach();
         $this->focus->detach();

@@ -150,3 +150,9 @@ it('does not read a hung X11 owner\'s data on a change or a window activation', 
 it('refuses to open a missing path', function (string $path): void {
     expect(fn () => driver()->desktop()->open($path))->toThrow(InvalidArgumentException::class, $path);
 })->with(['/nonexistent-c7', 'nonexistent-c7']);
+
+it('refuses to browse anything but an http or https address, and opens nothing', function (): void {
+    expect(fn () => driver()->desktop()->browse('file:///etc/hosts'))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => driver()->desktop()->browse('javascript:alert(1)'))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => driver()->desktop()->browse('example.com'))->toThrow(InvalidArgumentException::class);
+});

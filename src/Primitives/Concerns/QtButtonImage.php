@@ -51,6 +51,8 @@ trait QtButtonImage
     protected function applyBordered(bool $on): void
     {
         $this->native()->setFlat(! $on);
+        // The stand-in border and padding of a styled background follow the bordered state.
+        $this->applyBackground($this->background);
     }
 
     private function applyFace(): void

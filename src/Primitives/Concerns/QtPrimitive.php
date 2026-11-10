@@ -11,7 +11,12 @@ use Jovian\Toolkits\Qt\Windows\QtWindow;
 use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
+use QGraphicsOpacityEffect;
 use QObject;
+use QPoint;
+use QPropertyAnimation;
+use QTimer;
+use Surface\Contracts\Windows\Primitives\TKTransition;
 use QSizePolicy\Policy;
 use Qt\AlignmentFlag;
 use Qt\WidgetAttribute;
@@ -35,6 +40,15 @@ use Surface\Windows\Menus\ContextMenu;
 trait QtPrimitive
 {
     protected QWidget $native;
+
+    /** @var list<QPropertyAnimation>|null the running transition's animations */
+    protected ?array $transition_animations = null;
+
+    /** Where layout put the widget when the running transition started. */
+    protected ?QPoint $transition_rest = null;
+
+    /** Bumped by every transition and stop: a timer from an older one does nothing. */
+    protected int $transition_generation = 0;
 
     /**
      * CSS property => value, written as the native's style sheet.
@@ -138,6 +152,123 @@ trait QtPrimitive
         $this->setStyle('background-color', $color?->toCss());
     }
 
+    /** A style-sheet border-radius rounds the styled background; children are not clipped. */
+    protected function applyCornerRadius(float $radius): void
+    {
+        $this->setStyle('border-radius', $radius > 0.0 ? "{$radius}px" : null);
+    }
+
+    /** A QGraphicsOpacityEffect draws the widget at $opacity; at 1.0 with nothing animating, none is held. */
+    protected function applyOpacity(float $opacity): void
+    {
+        if ($opacity >= 1.0 && is_null($this->transition_animations)) {
+            $this->dropOpacityEffect();
+
+            return;
+        }
+
+        $this->opacityEffect()->setOpacity($opacity);
+    }
+
+    /**
+     * Two QPropertyAnimations: the opacity effect's "opacity" and the widget's "pos". Entering starts
+     * transparent at once and reads the laid-out position one tick later (the layout places a widget
+     * just shown on the next event pass), then runs from the offset back to it. A single-shot timer lands
+     * it; a newer transition makes an older one's ticks stale.
+     */
+    protected function applyTransition(TKTransition $transition, bool $entering, float $seconds, ?Closure $done): void
+    {
+        $this->stopTransition();
+        $generation = ++$this->transition_generation;
+        $current = fn (): bool => $generation === $this->transition_generation && ! $this->removed;
+        $msec = (int) round($seconds * 1000);
+        [$dx, $dy] = $transition->offset();
+
+        $effect = $this->opacityEffect();
+        if ($entering) {
+            $effect->setOpacity(0.0);
+        }
+
+        $run = function () use ($current, $entering, $effect, $msec, $dx, $dy): void {
+            if (! $current()) {
+                return;
+            }
+            $rest = $this->native->pos();
+            $away = new QPoint($rest->x() + $dx, $rest->y() + $dy);
+
+            $fade = new QPropertyAnimation($effect, 'opacity', $this->native);
+            $fade->setDuration($msec);
+            $fade->setStartValue($entering ? 0.0 : $this->opacity);
+            $fade->setEndValue($entering ? $this->opacity : 0.0);
+
+            $slide = new QPropertyAnimation($this->native, 'pos', $this->native);
+            $slide->setDuration($msec);
+            $slide->setStartValue($entering ? $away : $rest);
+            $slide->setEndValue($entering ? $rest : $away);
+
+            $this->transition_animations = [$fade, $slide];
+            $this->transition_rest = $rest;
+            $fade->start();
+            $slide->start();
+        };
+
+        if ($entering) {
+            QTimer::singleShot(16, $run);
+        } else {
+            $run();
+        }
+
+        QTimer::singleShot(($entering ? 16 : 0) + $msec, function () use ($current, $done): void {
+            if (! $current()) {
+                return;
+            }
+            $rest = $this->transition_rest;
+            $this->transition_animations = null;
+            $this->transition_rest = null;
+            if (! is_null($done)) {
+                $done();
+            }
+            // After $done hid it: back where layout put it, at its opacity, for the next time it shows.
+            if (! is_null($rest)) {
+                $this->native->move($rest->x(), $rest->y());
+            }
+            $this->applyOpacity($this->opacity);
+        });
+    }
+
+    /** Stop a running transition; its pending ticks see a newer generation. */
+    protected function stopTransition(): void
+    {
+        $this->transition_generation++;
+        foreach ($this->transition_animations ?? [] as $animation) {
+            $animation->stop();
+        }
+        $this->transition_animations = null;
+        $this->transition_rest = null;
+    }
+
+    protected function opacityEffect(): QGraphicsOpacityEffect
+    {
+        $effect = $this->native->graphicsEffect();
+        if ($effect instanceof QGraphicsOpacityEffect) {
+            return $effect;
+        }
+
+        // Parented to the widget so Qt owns it: a parentless one goes with its PHP wrapper.
+        $effect = new QGraphicsOpacityEffect($this->native);
+        $this->native->setGraphicsEffect($effect);
+
+        return $effect;
+    }
+
+    /** setGraphicsEffect(null) deletes the effect the widget held. */
+    protected function dropOpacityEffect(): void
+    {
+        if ($this->native->graphicsEffect() instanceof QGraphicsOpacityEffect) {
+            $this->native->setGraphicsEffect(null);
+        }
+    }
+
     /**
      * The policy lets the widget grow on a filled axis; the container's stretch factors
      * decide who takes the spare space (placeChild).
@@ -176,10 +307,16 @@ trait QtPrimitive
      * @param Color|null $color
      * @return void
      */
+    /**
+     * A style-sheet background turns off the native bezel, so a bordered button gets a border and
+     * padding in its place; a flat one (setBordered(false)) has no bezel to stand in for, and keeps
+     * its whole frame for its label.
+     */
     protected function applyButtonBackground(?Color $color): void
     {
-        $this->setStyle('border', is_null($color) ? null : "1px solid {$color->toCss()}");
-        $this->setStyle('padding', is_null($color) ? null : '4px 12px');
+        $bezel = ! is_null($color) && (! property_exists($this, 'bordered') || $this->bordered);
+        $this->setStyle('border', $bezel ? "1px solid {$color->toCss()}" : null);
+        $this->setStyle('padding', $bezel ? '4px 12px' : null);
         $this->setStyle('background-color', $color?->toCss());
     }
 
@@ -244,6 +381,7 @@ trait QtPrimitive
         // A menu popupMenu() opened goes with the primitive.
         $this->popup?->menu()->close();
         $this->popup = null;
+        $this->stopTransition();
         $this->whileHoldingFocus(fn () => $this->whileNativeAlive(function (): void {
             $this->native->setParent(null);
             $this->native->deleteLater();

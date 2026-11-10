@@ -298,3 +298,14 @@ it('keeps a fixed container as large as its frames beside a filling sibling', fu
         ->and($fixed->native()->minimumHeight())->toBe(40);
 });
 
+
+it('writes a corner radius into the widget\'s style sheet, and drops it at 0', function (): void {
+    $window = driver()->open('main', 300, 200);
+    $card = $window->column('m')->column('card');
+
+    $card->setBackground(Color::rgb(255, 0, 0))->setCornerRadius(8.0);
+    expect($card->native()->styleSheet())->toContain('border-radius: 8px');
+
+    $card->setCornerRadius(0.0);
+    expect($card->native()->styleSheet())->not->toContain('border-radius');
+});

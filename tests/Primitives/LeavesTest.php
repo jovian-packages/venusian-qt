@@ -488,3 +488,16 @@ it('makes a style-sheet background visible on push buttons by drawing their bord
     expect($button->native()->styleSheet())->toBe('');
 });
 
+it('gives a flat push button its background without the stand-in border and padding', function (): void {
+    $main = presentedColumn();
+    $button = $main->button('b', '?')->setBackground(new Color(1.0, 0.0, 0.0))->setBordered(false);
+
+    expect($button->native()->styleSheet())->toContain('background-color: ')
+        ->and($button->native()->styleSheet())->not->toContain('border:')
+        ->and($button->native()->styleSheet())->not->toContain('padding:');
+
+    $button->setBordered(true);
+    expect($button->native()->styleSheet())->toContain('border: 1px solid ')
+        ->and($button->native()->styleSheet())->toContain('padding: 4px 12px');
+});
+
