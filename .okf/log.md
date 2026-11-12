@@ -1,5 +1,14 @@
 # Log
 
+## 2026-11-10
+
+* [Primitives](architecture/primitives.md): web view (`QtWebView`, `TKWebView`) over `QWebEngineView`. `tests/Primitives/WebViewTest.php`: 2 passed.
+* [Primitives](architecture/primitives.md): video shows the first frame once loaded and the last at the end (paused, not stopped); `play()` after the end starts over. `tests/Primitives/VideoTest.php`: 4 passed, 1 skipped.
+* [Primitives](architecture/primitives.md): video gets a control bar (play/pause, position, time, mute) under the QVideoWidget, which has none; the native is now the host `QWidget`, `videoWidget()` the video. `tests/Primitives/VideoTest.php`: 3 passed, 1 skipped.
+* [Primitives](architecture/primitives.md): collection cells paint `CollectionItem::$icons` on discs over the top-right corner, left of the action. `tests/Primitives/ItemViewsTest.php`: 4 passed.
+* [Primitives](architecture/primitives.md): a FIT image's natural height follows its width (`QtImage::fitHeight()`). `tests/Primitives/LeavesTest.php` (new case); suite 400 passed, 22 skipped.
+* [Primitives](architecture/primitives.md): segmented control, collection view and list view (`QtSegmentedControl`, `QtCollectionView`, `QtListView`, shared `Concerns/QtItemView`). `tests/Primitives/ItemViewsTest.php` (3 passed, no window shown; painted rows wait for a shown-window run).
+
 ## 2026-11-08
 
 * `QtCanvas::sameLoader()` compares loaders by address: ext-posi `dlopen()` of the name Qt would load, `dlsym('vkGetInstanceProcAddr')` against ext-vulkan's `vkGetInstanceProcAddr(null, ...)`. `loaderPath()`, the `/proc/self/maps` read and the `vkGetLoaderPath()` ask are gone. Needs ext-vulkan's `vkGetInstanceProcAddr` (bindings list D; not yet bound, so the lend is refused until it is) and ext-posi 8da2c36. Not run: the Qt suite needs a Qt display.

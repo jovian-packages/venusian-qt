@@ -51,7 +51,7 @@ it('plays a clip to the end and reports a missing file', function (): void {
     $classes = array_map(fn (object $m): string => $m::class, $mail);
 
     expect($video)->toBeInstanceOf(QtVideo::class)
-        ->and($video->native())->toBeInstanceOf(QVideoWidget::class)
+        ->and($video->videoWidget())->toBeInstanceOf(QVideoWidget::class)
         ->and($classes)->toContain(VideoPlaying::class, VideoEnded::class)
         ->and(array_search(VideoPlaying::class, $classes, true))->toBeLessThan(array_search(VideoEnded::class, $classes, true))
         ->and($mail)->toContainEqual(new VideoEnded('main', 'm.v', $video->uuid()))
@@ -101,6 +101,63 @@ it('pauses, seeks and loops on request', function (): void {
     $mail = mailUntil(VideoEnded::class, 2.5);
     expect(array_filter($mail, fn (object $m): bool => $m instanceof VideoEnded))->toBe([])
         ->and($video->isPlaying())->toBeTrue();
+});
+
+it('shows the first frame once loaded and stays on the last at the end; play() then starts over', function (): void {
+    $window = driver()->open('main', 200, 200);
+    $video = $window->column('m')->video('v', __DIR__.'/../fixtures/clip.mp4');
+    $video->setMuted(true);
+    $window->present();
+    $player = $video->player();
+    $deadline = microtime(true) + 3.0;
+    while ($player->playbackState() !== QMediaPlayer\PlaybackState::PAUSED && microtime(true) < $deadline) {
+        pumpFor(0.05);
+    }
+    expect($player->playbackState())->toBe(QMediaPlayer\PlaybackState::PAUSED)
+        ->and($video->isPlaying())->toBeFalse()
+        ->and(array_filter(takeMail(session()), fn (object $m): bool => $m instanceof VideoPaused))->toBe([]);
+
+    $video->play();
+    mailUntil(VideoEnded::class, 8.0);
+    pumpFor(0.2);
+    expect($player->playbackState())->toBe(QMediaPlayer\PlaybackState::PAUSED)
+        ->and($video->position())->toBeGreaterThan($video->duration() - 0.1);
+
+    $video->play();
+    pumpFor(0.2);
+    expect($video->position())->toBeLessThan(0.6);
+});
+
+it('gives the video a control bar that plays, pauses, mutes and follows the position', function (): void {
+    $window = driver()->open('main', 320, 260);
+    $video = $window->column('m')->video('v', __DIR__.'/../fixtures/clip.mp4');
+    $video->fill();
+    $window->present();
+    pumpFor(0.3);
+    $bar = $video->controls();
+    [$toggle, $scrub, $time, $mute] = array_values(array_filter($bar->children(), fn ($c) => $c instanceof QWidget));
+
+    expect($bar->isVisible())->toBeTrue()
+        ->and($toggle->text())->toBe('▶')
+        ->and($scrub->maximum())->toBeGreaterThan(900);
+
+    $mute->click();
+    expect($video->isMuted())->toBeTrue()->and($mute->isChecked())->toBeTrue();
+
+    $toggle->click();
+    $mail = mailUntil(VideoPlaying::class, 5.0);
+    expect($mail)->toContainEqual(new VideoPlaying('main', 'm.v', $video->uuid()))
+        ->and($toggle->text())->toBe('❚❚');
+    pumpFor(0.4);
+    expect($scrub->value())->toBeGreaterThan(0)
+        ->and($time->text())->toMatch('/^0:0\\d \\/ 0:0\\d$/');
+
+    $toggle->click();
+    mailUntil(VideoPaused::class, 3.0);
+    expect($video->isPlaying())->toBeFalse()->and($toggle->text())->toBe('▶');
+
+    $video->disable();
+    expect($bar->isVisible())->toBeFalse();
 });
 
 it('refuses video when Qt has no media backend', function (): void {

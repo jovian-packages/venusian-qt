@@ -390,6 +390,29 @@ it('sizes an image from the file, shrinks it with its slot and grows it back', f
         ->and(pixmapSize($image->label()))->toBe([240, 20]);
 });
 
+it('gives a FIT image the height its width asks for at the file\'s aspect, as GtkPicture does', function (): void {
+    $window = driver()->open('main', 600, 400);
+    $scroll = $window->column('m')->scrollView('s');
+    $scroll->setScrollbars(false, true);
+    $scroll->fill();
+    $feed = $scroll->column('feed');
+    // 240 × 20 wide: at the column's width the natural height is a twelfth of it, not 20 and not the scroll's.
+    $image = $feed->image('i', __DIR__.'/../fixtures/wider.png');
+    $image->setScaling(Surface\Contracts\Windows\Primitives\ImageScaling::FIT)->fill(true, false);
+    $window->present();
+    pumpFor(0.3);
+
+    [$width, $height] = $image->size();
+    expect($width)->toBeGreaterThan(240)
+        ->and($height)->toBe((int) round($width * 20 / 240));
+
+    $window->native()->resize(400, 400);
+    pumpFor(0.3);
+    [$narrower, $shorter] = $image->size();
+    expect($narrower)->toBeLessThan($width)
+        ->and($shorter)->toBe((int) round($narrower * 20 / 240));
+});
+
 it('shows button, check box and label text literally', function (): void {
     $main = presentedColumn();
     $button = $main->button('b', 'R&D');

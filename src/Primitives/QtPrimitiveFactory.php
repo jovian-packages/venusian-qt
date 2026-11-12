@@ -31,12 +31,16 @@ use Surface\Contracts\Windows\Primitives\TKSpinner;
 use Surface\Contracts\Windows\Primitives\TKSplitView;
 use Surface\Contracts\Windows\Primitives\TKTabView;
 use Surface\Contracts\Windows\Primitives\TKTable;
+use Surface\Contracts\Windows\Primitives\TKSegmentedControl;
+use Surface\Contracts\Windows\Primitives\TKCollectionView;
+use Surface\Contracts\Windows\Primitives\TKListView;
 use Surface\Contracts\Windows\Primitives\TKTextArea;
 use Surface\Contracts\Windows\Primitives\TKTextInput;
 use Surface\Contracts\Windows\Primitives\TKToggle;
 use Surface\Contracts\Windows\Primitives\TKToggleButton;
 use Surface\Contracts\Windows\Primitives\TKTree;
 use Surface\Contracts\Windows\Primitives\TKVideo;
+use Surface\Contracts\Windows\Primitives\TKWebView;
 use Surface\Contracts\Windows\WindowException;
 
 /**
@@ -150,6 +154,21 @@ class QtPrimitiveFactory implements PrimitiveFactory
         return new QtTable($name, $this->window, $host, $this->placement($host), $columns, $rows);
     }
 
+    public function mintSegmentedControl(TKPrimitiveGroup $host, string $name, array $segments, int $selected): TKSegmentedControl
+    {
+        return new QtSegmentedControl($name, $this->window, $host, $this->placement($host), $segments, $selected);
+    }
+
+    public function mintCollectionView(TKPrimitiveGroup $host, string $name, array $items): TKCollectionView
+    {
+        return new QtCollectionView($name, $this->window, $host, $this->placement($host), $items);
+    }
+
+    public function mintListView(TKPrimitiveGroup $host, string $name, array $items): TKListView
+    {
+        return new QtListView($name, $this->window, $host, $this->placement($host), $items);
+    }
+
     public function mintTree(TKPrimitiveGroup $host, string $name, array $columns, array $nodes): TKTree
     {
         return new QtTree($name, $this->window, $host, $this->placement($host), $columns, $nodes);
@@ -158,6 +177,18 @@ class QtPrimitiveFactory implements PrimitiveFactory
     public function mintVideo(TKPrimitiveGroup $host, string $name, ?string $file): TKVideo
     {
         return new QtVideo($name, $this->window, $host, $this->placement($host), $file);
+    }
+
+    /**
+     * @throws WindowException When the loaded ext-qt has no QWebEngineView (a build from before its binding).
+     */
+    public function mintWebView(TKPrimitiveGroup $host, string $name): TKWebView
+    {
+        if (! class_exists('QWebEngineView')) {
+            throw new WindowException('TKWebView needs QWebEngineView, which this ext-qt build does not have.');
+        }
+
+        return new QtWebView($name, $this->window, $host, $this->placement($host));
     }
 
     public function mintColumn(?TKPrimitiveGroup $host, string $name, int $spacing, int $padding): TKColumn

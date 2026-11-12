@@ -5,7 +5,7 @@ description: Qt concretes of Surface's TK primitives - factory, containers over 
 resource: src/Primitives/
 tags: [qt, primitives, widgets, layout]
 status: draft
-generated: { by: claude-sonnet/5.5, at: 2026-11-08T13:00:00Z }
+generated: { by: claude-opus/5.5, at: 2026-11-11T11:00:00Z }
 sources:
   - id: trait
     resource: src/Primitives/Concerns/QtPrimitive.php
@@ -78,15 +78,30 @@ Event-filter closures that outlive a call (image resize, window close/activate/r
 | dropdown | `QComboBox`; options → `clear` + `addItems` under `applying` | `currentIndexChanged(int)` (≥ 0) → `SelectionChanged` |
 | datepicker | `QDateEdit`, calendar popup, minimum date 0100-01-01 (Qt's default floor is 1752-09-14); years outside 100..9999 → `WindowException`; null date shows today (Qt's own default is 2000-01-01) | `dateChanged(QDate)` (ISO string from ext-qt) and the popup calendar's `clicked(QDate)` → `DateChanged` at midnight, once per new date: clicking the day already shown on an unset picker is a pick dateChanged never reports |
 
-Image scaling: the host's natural size is the spacer's (the file's), never the last scaled pixmap's, so the slot shrinks and grows back; the label ignores its own hint and gets the whole cell. FIT / FILL re-scale the loaded pixmap (`KEEP` / `KEEP_BY_EXPANDING`, `SMOOTH_TRANSFORMATION`, at the label's `devicePixelRatioF()`, ratio set on the result) on every label `RESIZE` once it has had its first; CENTER unscaled, centred; STRETCH `setScaledContents(true)`. `label()` exposes the QLabel.
+Image scaling: the host's natural size is the spacer's (the file's), never the last scaled pixmap's, so the slot shrinks and grows back; the label ignores its own hint and gets the whole cell. FIT / FILL re-scale the loaded pixmap (`KEEP` / `KEEP_BY_EXPANDING`, `SMOOTH_TRANSFORMATION`, at the label's `devicePixelRatioF()`, ratio set on the result) on every label `RESIZE` once it has had its first; CENTER unscaled, centred; STRETCH `setScaledContents(true)`. FIT: the spacer's height follows the label's width at the file's aspect, re-sized on every label `RESIZE` and file or scaling change (`fitHeight()`), as GtkPicture measures height for width; ext-qt binds no `heightForWidth`. Without it a wide slot (a feed column in a scroll view) asked for the file's full height and showed the picture centred in empty space. `label()` exposes the QLabel.
 
 # Table
 
 `QTableWidget`, whole rows, single selection, `NO_EDIT_TRIGGERS`, header labels from the columns. `applyRows` → `clearContents` + `setRowCount` + `setItem` per normalised cell; `applySelectedRow` → `selectRow` / `clearSelection`. `itemSelectionChanged()` → row from `selectedItems()[0]->row()` (none → null; `currentRow()` would keep the old row after a Ctrl-click deselect) → `RowSelected(row, cells)`.[^table]
 
+# Segmented control
+
+Qt has none: a `QWidget` whose zero-spacing, zero-margin `QHBoxLayout` holds one `QToolButton` per segment, checkable and `setAutoExclusive(true)`, so Qt keeps one checked. Replacing segments deletes the old buttons later. `toggled(bool)` to checked on a segment other than Surface's → `SelectionChanged(index, label)`; code's `select()` runs under `applying`.
+
+# Item views
+
+`QtCollectionView` and `QtListView` share `Concerns/QtItemView`: a `QListView` (uniform sizes, static movement, `NO_EDIT_TRIGGERS`, `WA_Hover`) over a `QStandardItemModel` of one row per item, painted by a `QPaintDelegate` whose paint, sizeHint and editorEvent call PHP for the rows Qt shows. Insert and removal are `insertRows` / `removeRows`; an update sets the row's data so `dataChanged` repaints it; replacing all resets the row count. Pictures are loaded once per file and box, scaled `KeepAspectRatioByExpanding` and cropped with `QPixmap::copy` to cover the box, in a 256-entry cache (oldest out). Text is elided with `QFontMetricsF::horizontalAdvance`. Hover and selection read `QStyle::State_MouseOver` / `State_Selected` (fixed flag values) from the option's state. A left-button release inside the item's action rect (editorEvent) posts `ItemActionClicked` and is taken. A collection cell's status icons (`CollectionItem::$icons`) are painted on 26 px discs (antialiased `drawRoundedRect` at half the size, white rim at 70%, black fill at 55%; ext-qt binds no `drawEllipse`) right to left from the action rect, or from the corner without one (`statusRects()`); they take no clicks. The vertical scroll bar's `valueChanged(int)` posts `ViewScrolled` while watched; positions come from both bars (value, page step, maximum + page step).
+
+* Collection: icon mode, left-to-right wrapping, adjust on resize, grid = cell size + 6 px margins; cover picture above a centred caption, the action picture top-right; `clicked(QModelIndex)` → `ItemActivated`.
+* List: list mode, size hint 200 × row height; 3:2 cover picture with the badge (palette Highlight / HighlightedText) at its corner, elided demi-bold title, 14 px status icons at the end, detail word-wrapped and clipped to the space above the action, the action as a rounded Button-coloured rect; a disabled row paints at 50% and posts nothing; `activated(QModelIndex)` (the platform's gesture) → `ItemActivated`. A row-height change resets the row count so the view asks the delegate again.
+
+# Web view
+
+`QWebEngineView` (Qt WebEngine, Chromium). `loadStarted()` reports loading; `loadFinished(bool)` posts WebViewLoaded (true) or WebViewFailed (false; Qt gives no reason, so the reason names the URL); `titleChanged(QString)` and `urlChanged(QUrl)` keep `title()` and `url()` current (empty reads as null). `mintWebView` throws `WindowException` where the loaded ext-qt has no `QWebEngineView`.
+
 # Video
 
-`QVideoWidget` + `QMediaPlayer` + `QAudioOutput`, player and output children of the widget. Creation throws `WindowException("TKVideo needs a Qt Multimedia backend plugin (Debian: libqt6multimedia6; Homebrew: qt).")` when `QMediaPlayer::isAvailable()` is false (no backend plugin loaded).[^video]
+A host `QWidget` (the native): `QVideoWidget` + `QMediaPlayer` + `QAudioOutput`, player and output children of the video widget, above a control bar (`controls()`): play/pause `QPushButton` (▶ / ❚❚), a position `QSlider` in ms following `positionChanged(qint64)` / `durationChanged(qint64)` except between `sliderPressed()` and `sliderReleased()` (`sliderMoved(int)` seeks), the time label (m:ss / m:ss) and a checkable Mute button. QVideoWidget has no controls, where AVPlayerView and GtkVideo show theirs. The buttons go through `play()`, `pause()`, `setMuted()`. Disabled, the bar hides (AppKit's view shows no controls then); `videoWidget()` is the `QVideoWidget`. A stopped `QMediaPlayer` shows no frame: on `LoadedMedia` while stopped the player pauses (the first frame), and at `EndOfMedia` it seeks to 1 ms before the end and pauses (the last frame), as AVPlayerView and GtkVideo show; `play()` after the end seeks to 0 first, as AppKit starts again. Creation throws `WindowException("TKVideo needs a Qt Multimedia backend plugin (Debian: libqt6multimedia6; Homebrew: qt).")` when `QMediaPlayer::isAvailable()` is false (no backend plugin loaded).[^video]
 
 Playing = `PLAYING` state **and** `BUFFERING`/`BUFFERED` media, recomputed on every state change, status change and error. macOS's backend enters `PLAYING` on `play()` while the file still loads and stays there when it fails; the FFmpeg backend (Pi) waits for `LOADED`. So a failing file posts `VideoFailed` and never `VideoPlaying` on both. Transitions: true → `VideoPlaying`, false → `VideoPaused`; `END_OF_MEDIA` → `VideoPaused` then `VideoEnded` (`isPlaying()` already false). Loop → `setLoops(INFINITE_LOOPS)` (no end reported); seek → `setPosition(ms)`; muted → `QAudioOutput::setMuted`. Remove stops the player before the widget's `deleteLater()`; handlers post nothing once removed.
 

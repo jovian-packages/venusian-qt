@@ -142,7 +142,7 @@ class QtImage extends TKImage implements QtNative
     protected function applyScaling(ImageScaling $scaling): void
     {
         $this->rendered_for = null;
-        $this->render();
+        $this->settle();
     }
 
     /**
@@ -158,13 +158,36 @@ class QtImage extends TKImage implements QtNative
             Policy::PREFERRED,
         );
         $this->cell->invalidate();
+        $this->laid_out && $this->fitHeight();
         $this->render();
     }
 
     protected function resized(): void
     {
         $this->laid_out = true;
+        $this->fitHeight();
         $this->render();
+    }
+
+    /**
+     * A FIT image's natural height follows the width it was given, at the file's aspect, as
+     * GtkPicture measures height for width: a wide slot never asks for the file's full height
+     * and shows the picture centred in a band of empty space. ext-qt binds no heightForWidth,
+     * so the spacer is re-sized on each Resize; only the height moves, so the width that set it
+     * stays and the next Resize finds nothing to change.
+     */
+    protected function fitHeight(): void
+    {
+        if ($this->scaling !== ImageScaling::FIT || is_null($this->pixmap) || $this->pixmap->width() === 0) {
+            return;
+        }
+        $width = $this->label->size()->width();
+        $height = (int) round($width * $this->pixmap->height() / $this->pixmap->width());
+        if ($width <= 0 || $height === $this->natural->sizeHint()->height()) {
+            return;
+        }
+        $this->natural->changeSize($this->pixmap->width(), $height, Policy::PREFERRED, Policy::PREFERRED);
+        $this->cell->invalidate();
     }
 
     protected function render(): void
