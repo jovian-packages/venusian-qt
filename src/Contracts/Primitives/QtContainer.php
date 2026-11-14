@@ -2,7 +2,7 @@
 
 namespace Jovian\Toolkits\Qt\Contracts\Primitives;
 
-use Surface\Contracts\Windows\Primitives\TKPrimitive;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitive;
 
 /**
  * A Qt container: re-places a child after its align() changed.

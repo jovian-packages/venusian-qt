@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Windows\QtMenuBar;
+use Windows\QtMenuBar;
 use Surface\Contracts\Windows\Menus\MenuRole;
 
 beforeEach(function (): void {

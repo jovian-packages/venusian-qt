@@ -1,31 +1,24 @@
 <?php
 
-namespace Jovian\Toolkits\Qt\Bridge;
+namespace Jovian\Toolkits\Qt;
 
-use Jovian\Toolkits\Qt\Primitives\QtCanvas;
+use QTimer;
+use QObject;
+use QWidget;
+use QMessageBox;
+use QSocketNotifier;
+use Qt\WidgetAttribute;
 use QAbstractEventDispatcher;
-use QApplication;
-use QCoreApplication;
 use QEvent\Type as EventType;
 use QEventLoop\ProcessEventsFlag;
-use QGuiApplication;
-use QMessageBox;
-use QObject;
-use QSocketNotifier;
+use QApplication;
 use Qt\TimerType;
-use Qt\WidgetAttribute;
-use QTimer;
-use QWidget;
-use Surface\Bridge\BridgedToolkitSession;
+use QGuiApplication;
+use QCoreApplication;
+use Surface\Toolkits\ToolkitSession;
 
-class QtSession extends BridgedToolkitSession
+class QtSession extends ToolkitSession
 {
-    /**
-     * Non-blocking passes one pump runs after its wait. A source that is always ready
-     * (a zero-interval timer) waits for the next pump instead of holding this one.
-     */
-    public const int DRAIN_LIMIT = 64;
-
     /**
      * The application, from initialization until the process ends.
      * @var QApplication|null
@@ -39,21 +32,21 @@ class QtSession extends BridgedToolkitSession
     protected ?QTimer $budget = null;
 
     /**
+     * Non-blocking passes one pump runs after its wait. A source that is always ready
+     * (a zero-interval timer) waits for the next pump instead of holding this one.
+     */
+    public const int DRAIN_LIMIT = 64;
+
+    /**
      * The loop's waiter descriptor as a socket notifier, while joined.
-     * @var QSocketNotifier|null
      */
     protected ?QSocketNotifier $wake = null;
 
     /**
      * The About box while it is open; it deletes itself when closed.
-     * @var QMessageBox|null
      */
     protected ?QMessageBox $about_box = null;
 
-    /**
-     * @param string $application_name the name macOS shows in the application menu (About/Quit items)
-     * @param string $desktop_file_name the desktop identity: Wayland's app_id, the .desktop file it matches
-     */
     public function __construct(
         protected readonly string $application_name,
         protected readonly string $desktop_file_name,
@@ -67,7 +60,7 @@ class QtSession extends BridgedToolkitSession
      */
     protected function initializeEngine(): void
     {
-        QtCanvas::shareGLContexts();
+        //QtCanvas::shareGLContexts();
         $argc = 1;
         $this->application = new QApplication($argc, [$_SERVER['argv'][0] ?? PHP_BINARY]);
         QCoreApplication::setApplicationName($this->application_name);
@@ -79,10 +72,6 @@ class QtSession extends BridgedToolkitSession
         $this->budget->setTimerType(TimerType::PRECISE_TIMER);
     }
 
-    /**
-     * Keep the application up with no windows: closing the last one quits nothing.
-     * @return void
-     */
     protected function connectToEngine(): void
     {
         QGuiApplication::setQuitOnLastWindowClosed(false);
@@ -90,7 +79,6 @@ class QtSession extends BridgedToolkitSession
 
     /**
      * The inverse of connectToEngine(): Qt's default, the last window closing quits.
-     * @return void
      */
     protected function disconnectEngine(): void
     {
@@ -128,18 +116,13 @@ class QtSession extends BridgedToolkitSession
         // pumped application never enters; asking for deferred deletes at this level runs them.
         QCoreApplication::sendPostedEvents(null, EventType::DEFERRED_DELETE->value);
 
-        if (PHP_OS_FAMILY === 'Darwin') {
-            QtCanvas::sweepSdlWindows();
-        }
+        // Not ported yet: the canvas's SDL window sweep on macOS (QtCanvas waits on TKCanvas).
 
         return $dispatched;
     }
 
     /**
      * The descriptor becomes a read notifier in Qt's dispatcher: readable ends the wait.
-     *
-     * @param int $fd
-     * @return void
      */
     protected function wakeDescriptor(int $fd): void
     {
@@ -149,9 +132,6 @@ class QtSession extends BridgedToolkitSession
         });
     }
 
-    /**
-     * @return void
-     */
     protected function releaseWakeDescriptor(): void
     {
         if (! is_null($this->wake)) {
@@ -163,7 +143,6 @@ class QtSession extends BridgedToolkitSession
 
     /**
      * The application, for window hosts.
-     * @return QApplication
      */
     public function application(): QApplication
     {
@@ -175,8 +154,6 @@ class QtSession extends BridgedToolkitSession
      * one. While it is open, showing it again updates and raises the same box, as macOS does.
      *
      * @param array{name?: string|null, version?: string|null, copyright?: string|null} $about
-     * @param QWidget|null $parent
-     * @return QMessageBox
      */
     public function showAbout(array $about, ?QWidget $parent): QMessageBox
     {
@@ -201,10 +178,7 @@ class QtSession extends BridgedToolkitSession
         return $box;
     }
 
-    /**
-     * The About box while it is open.
-     * @return QMessageBox|null
-     */
+    /** The About box while it is open. */
     public function aboutBox(): ?QMessageBox
     {
         return $this->about_box;

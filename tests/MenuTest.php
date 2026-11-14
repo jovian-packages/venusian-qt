@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
-use Jovian\Toolkits\Qt\Windows\QtMenuBar;
+use deprecated\Bridge\QtBridgeDriver;
+use Windows\QtMenuBar;
+use QAction\MenuRole;
 use QEvent\Type;
 use QKeySequence\SequenceFormat;
-use Surface\Windows\Menus\Accelerator;
-use QAction\MenuRole;
 use Surface\Contracts\Windows\Mail\MenuActivated;
 use Surface\Contracts\Windows\Mail\MenuRadioChosen;
 use Surface\Contracts\Windows\Mail\MenuToggled;
 use Surface\Contracts\Windows\Mail\QuitRequested;
 use Surface\Contracts\Windows\WindowException;
+use Surface\Windows\Menus\Accelerator;
 
 beforeEach(function (): void {
     driver()->closeAll();
@@ -21,7 +21,7 @@ beforeEach(function (): void {
 });
 
 /** Choose an item the way its menu does: trigger its action. */
-function choose(Jovian\Toolkits\Qt\Windows\QtMenuBar $bar, string $id): void
+function choose(Windows\QtMenuBar $bar, string $id): void
 {
     $bar->action($id)->trigger();
 }

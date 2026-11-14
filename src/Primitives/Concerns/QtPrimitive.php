@@ -3,11 +3,11 @@
 namespace Jovian\Toolkits\Qt\Primitives\Concerns;
 
 use Closure;
-use Jovian\Toolkits\Qt\Bridge\QtSession;
+use Jovian\Toolkits\Qt\QtSession;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtContainer;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Windows\QtContextMenu;
-use Jovian\Toolkits\Qt\Windows\QtWindow;
+use Jovian\Toolkits\Qt\QtWindow;
 use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
@@ -15,22 +15,22 @@ use QGraphicsOpacityEffect;
 use QObject;
 use QPoint;
 use QPropertyAnimation;
-use QTimer;
-use Surface\Contracts\Windows\Primitives\TKTransition;
 use QSizePolicy\Policy;
 use Qt\AlignmentFlag;
 use Qt\WidgetAttribute;
 use QtException;
+use QTimer;
 use QWidget;
-use Surface\Contracts\Windows\Mail\View\ViewResized;
-use Surface\Contracts\Windows\Menus\ContextMenu as ContextMenuContract;
-use Surface\Contracts\Windows\Primitives\Align;
-use Surface\Contracts\Windows\Primitives\TKPrimitive;
-use Surface\Contracts\Windows\Styling\FontSpec;
-use Surface\Contracts\Windows\WindowException;
-use Surface\Contracts\Windows\Styling\TextAlignment;
+use Surface\Contracts\Toolkits\Mail\Views\ViewResized;
+use Surface\Contracts\Toolkits\Menus\ContextMenu as ContextMenuContract;
+use Surface\Contracts\Toolkits\Primitives\Align;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitive;
+use Surface\Contracts\Toolkits\Primitives\TKTransition;
+use Surface\Contracts\Toolkits\Styling\FontSpec;
+use Surface\Contracts\Toolkits\Styling\TextAlignment;
+use Surface\Contracts\Toolkits\ToolkitRuntimeException;
 use Surface\NutsAndBolts\Color;
-use Surface\Windows\Menus\ContextMenu;
+use Surface\Toolkits\Menus\ContextMenu;
 
 /**
  * The hooks every Qt primitive shares. Styling is one style sheet per widget, scoped to
@@ -137,7 +137,7 @@ trait QtPrimitive
     protected function whileHoldingFocus(Closure $change): void
     {
         $focus = $this->qtWindow()->focusTracker();
-        if ($focus->within($this)) {
+        if (! is_null($focus) && $focus->within($this)) {
             $focus->quietly(null, $change);
 
             return;
@@ -501,14 +501,14 @@ trait QtPrimitive
         if ($this->native->focusPolicy() === \Qt\FocusPolicy::NO_FOCUS) {
             return false;
         }
-        $this->qtWindow()->focusTracker()->quietly($this, fn () => $this->native->setFocus());
+        $this->qtWindow()->quietly($this, fn () => $this->native->setFocus());
 
         return true;
     }
 
     protected function nativeHasFocus(): bool
     {
-        return $this->qtWindow()->focusTracker()->holder() === $this;
+        return $this->qtWindow()->focused() === $this;
     }
 
     /** The menu popupMenu() opened, while it shows; null otherwise. */
@@ -542,7 +542,7 @@ trait QtPrimitive
     {
         return $this->window instanceof QtWindow
             ? $this->window
-            : throw new WindowException(static::class.' lives in a QtWindow, got '.get_class($this->window).'.');
+            : throw new ToolkitRuntimeException(static::class.' lives in a QtWindow, got '.get_class($this->window).'.');
     }
 
     protected function session(): QtSession
@@ -554,12 +554,12 @@ trait QtPrimitive
      * The native widget of a child this driver minted.
      * @param TKPrimitive $child
      * @return QWidget
-     * @throws WindowException When the child is not a Qt primitive.
+     * @throws ToolkitRuntimeException When the child is not a Qt primitive.
      */
     protected static function nativeOf(TKPrimitive $child): QWidget
     {
         return $child instanceof QtNative
             ? $child->native()
-            : throw new WindowException("'{$child->path()}' is not a Qt primitive.");
+            : throw new ToolkitRuntimeException("'{$child->path()}' is not a Qt primitive.");
     }
 }

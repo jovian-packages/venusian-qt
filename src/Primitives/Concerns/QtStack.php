@@ -5,7 +5,7 @@ namespace Jovian\Toolkits\Qt\Primitives\Concerns;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use QBoxLayout;
 use QVBoxLayout;
-use Surface\Contracts\Windows\Primitives\TKPrimitive as Child;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitive as Child;
 
 /**
  * Column and row: a QWidget carrying a box layout, children in display order, then a

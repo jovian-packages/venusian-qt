@@ -8,11 +8,11 @@ use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QScrollArea;
 use QSizePolicy\Policy;
 use Qt\ScrollBarPolicy;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\Primitives\TKPrimitive as Child;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
-use Surface\Windows\Primitives\TKScrollView;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitive as Child;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
+use Surface\Toolkits\Primitives\TKScrollView;
 
 /**
  * A QScrollArea whose one container resizes with the viewport and scrolls past it.

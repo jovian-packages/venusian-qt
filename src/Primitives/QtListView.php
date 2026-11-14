@@ -17,11 +17,11 @@ use QRect;
 use QSize;
 use QSizePolicy\Policy;
 use Qt\AlignmentFlag;
-use Surface\Contracts\Windows\Primitives\ListRow;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKListView;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Surface\Contracts\Toolkits\Primitives\ListRow;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKListView;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 
 /**
  * A QListView in list mode, one row per item at the row height. The delegate paints each row:

@@ -80,7 +80,7 @@ function glPumpUntil(Closure $done, float $seconds = 3.0): bool
     return $done();
 }
 
-/** @return array{\Jovian\Toolkits\Qt\Windows\QtWindow, \Jovian\Toolkits\Qt\Primitives\QtCanvas} a shown window with a filling canvas */
+/** @return array{\Windows\QtWindow, \Jovian\Toolkits\Qt\Primitives\QtCanvas} a shown window with a filling canvas */
 function qtGlCanvas(int $width = 300, int $height = 200): array
 {
     $window = driver()->open('main', $width, $height);

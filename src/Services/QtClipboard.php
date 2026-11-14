@@ -2,13 +2,13 @@
 
 namespace Jovian\Toolkits\Qt\Services;
 
-use Jovian\Toolkits\Qt\Bridge\QtSession;
+use Jovian\Toolkits\Qt\QtSession;
 use QClipboard;
 use QClipboard\Mode;
 use QGuiApplication;
 use QObject;
-use Surface\Contracts\Windows\Mail\Services\ClipboardChanged;
-use Surface\Windows\Services\ToolkitClipboard;
+use Surface\Contracts\Toolkits\Mail\Services\ClipboardChanged;
+use Surface\Toolkits\Services\ToolkitClipboard;
 use Voyager\Contracts\Signals\NamedSignal;
 use WeakReference;
 

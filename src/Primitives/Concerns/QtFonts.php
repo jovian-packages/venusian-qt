@@ -7,8 +7,8 @@ use QFontDatabase;
 use QFontDatabase\SystemFont;
 use QFontInfo;
 use QFontMetricsF;
-use Surface\Contracts\Windows\Styling\FontMetrics;
-use Surface\Contracts\Windows\Styling\FontSpec;
+use Surface\Contracts\Toolkits\Styling\FontMetrics;
+use Surface\Contracts\Toolkits\Styling\FontSpec;
 
 /**
  * FontSpec as the QFont the style sheet asks for (family, or the system's general or fixed

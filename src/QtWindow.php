@@ -1,69 +1,71 @@
 <?php
 
-namespace Jovian\Toolkits\Qt\Windows;
+namespace Jovian\Toolkits\Qt;
 
-use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
-use Jovian\Toolkits\Qt\Bridge\QtSession;
+use Closure;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Primitives\QtPrimitiveFactory;
+use Jovian\Toolkits\Qt\Windows\QtMenuBar;
 use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
 use QMainWindow;
 use QMenuBar;
 use QObject;
-use QVBoxLayout;
 use Qt\WidgetAttribute;
 use Qt\WindowModality;
 use Qt\WindowType;
+use QVBoxLayout;
 use QWidget;
-use Surface\Contracts\Windows\Mail\WindowCloseRequested;
-use Surface\Contracts\Windows\Mail\WindowClosed;
-use Surface\Contracts\Windows\Mail\WindowFocused;
-use Surface\Contracts\Windows\Mail\WindowResized;
-use Surface\Contracts\Windows\Mail\WindowScaleChanged;
-use Surface\Contracts\Windows\Primitives\TKPrimitive;
-use Surface\Contracts\Windows\Primitives\TKPrimitiveGroup;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Contracts\Windows\WindowException;
-use Surface\Windows\ChildWindows;
-use Surface\Windows\Menus\MenuProfile;
-use Surface\Windows\Primitives\HostsPrimitives;
+use Surface\Contracts\Toolkits\Mail\Windows\WindowClosed;
+use Surface\Contracts\Toolkits\Mail\Windows\WindowCloseRequested;
+use Surface\Contracts\Toolkits\Mail\Windows\WindowFocused;
+use Surface\Contracts\Toolkits\Mail\Windows\WindowResized;
+use Surface\Contracts\Toolkits\Mail\Windows\WindowScaleChanged;
+use Surface\Contracts\Toolkits\Primitives\PrimitiveFactory;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitive;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitiveGroup;
+use Surface\Contracts\Toolkits\ToolkitRuntimeException;
+use Surface\Contracts\Toolkits\ToolkitWindow as WindowContract;
+use Surface\Toolkits\Menus\MenuProfile;
+use Surface\Toolkits\Windows\ChildWindows;
+use Surface\Toolkits\Windows\ToolkitWindow;
 use WeakReference;
 
-class QtWindow implements ToolkitWindow
+class QtWindow extends ToolkitWindow
 {
-    use HostsPrimitives;
-
     /**
      * The native window while open; null once closed. Qt deletes it after close.
-     * @var QMainWindow|null
      */
     protected ?QMainWindow $window;
 
     /**
+     * The native's wrapper after close, held so it is not freed inside its own close event.
+     */
+    protected ?QMainWindow $departed = null;
+
+    /**
      * Where the content container goes: the central widget, below the bar.
-     * @var QWidget
      */
     protected QWidget $central;
 
     /**
      * Holds the content container's widget at the central widget's full size.
-     * @var QVBoxLayout
      */
     protected QVBoxLayout $central_layout;
 
     /**
      * Sees the central widget's Resize events: the content area's size.
-     * @var QEventFilter
      */
     protected QEventFilter $resize_filter;
 
-    protected ?QtPrimitiveFactory $factory = null;
+    protected ?PrimitiveFactory $factory = null;
+
+    /** The window's own menu bar; null when it has none. */
+    protected ?QtMenuBar $menu = null;
 
     /**
      * Sees the window's close and activation events.
-     * @var QEventFilter
      */
     protected QEventFilter $filter;
 
@@ -72,20 +74,6 @@ class QtWindow implements ToolkitWindow
 
     /** Before the first show the window is on no screen of its own: a ratio change then is not the user's. */
     private bool $shown_once = false;
-
-    protected ?QtMenuBar $menu = null;
-
-    protected QtRightClicks $right_clicks;
-
-    protected QtGroupClicks $group_clicks;
-
-    protected QtCanvasClicks $canvas_clicks;
-
-    protected QtCanvasPointer $canvas_pointer;
-
-    protected QtFocus $focus;
-
-    protected QtWindowKeys $window_keys;
 
     /** @var WeakReference<TKPrimitive>|null focused on each present(); weak, so a removed primitive is freed */
     protected ?WeakReference $initial_focus = null;
@@ -98,11 +86,11 @@ class QtWindow implements ToolkitWindow
     public function __construct(
         protected readonly string $name,
         protected readonly QtSession $session,
-        protected readonly QtBridgeDriver $driver,
+        protected readonly QtBridge $driver,
         int $width,
         int $height,
         ?MenuProfile $menu,
-        protected readonly ?ToolkitWindow $parent = null,
+        protected readonly ?WindowContract $parent = null,
     ) {
         $this->window = new QMainWindow();
         $this->window->setWindowTitle($name);
@@ -112,7 +100,7 @@ class QtWindow implements ToolkitWindow
         if ($parent instanceof self) {
             // setParent keeps the one-argument form in PHP; setWindowFlags then makes the child a window.
             $this->window->setParent($parent->native());
-            $this->window->setWindowFlags(PHP_OS_FAMILY === 'Darwin' ? WindowType::SHEET : WindowType::DIALOG);
+            $this->window->setWindowFlags(device_os_family() === 'mac' ? WindowType::SHEET : WindowType::DIALOG);
             $this->window->setWindowModality(WindowModality::WINDOW_MODAL);
         }
 
@@ -147,7 +135,7 @@ class QtWindow implements ToolkitWindow
             if ($type === EventType::WINDOW_ACTIVATE) {
                 $self->get()?->filtered($type);
             }
-            // Qt 6.6+ sends the ratio change; Qt 6.4 (the gaming PC's Ubuntu 24.04) only the screen change.
+            // Qt 6.6+ sends the ratio change; Qt 6.4 only the screen change.
             if ($type === EventType::DEVICE_PIXEL_RATIO_CHANGE || $type === EventType::SCREEN_CHANGE_INTERNAL) {
                 $self->get()?->scaleChanged();
             }
@@ -161,13 +149,9 @@ class QtWindow implements ToolkitWindow
         $this->window->installEventFilter($this->filter);
         // Deleted any other way (a parent, the application going): the same close path.
         QObject::connect($this->window, 'destroyed(QObject*)', fn () => $this->closed());
-        $this->right_clicks = new QtRightClicks($this, $this->window, $this->central, $session);
-        $this->group_clicks = new QtGroupClicks($this, $session);
-        $this->canvas_clicks = new QtCanvasClicks($this, $session);
-        $this->canvas_pointer = new QtCanvasPointer($this, $session);
-        $this->focus = new QtFocus($this);
-        $this->window_keys = new QtWindowKeys($this, $this->window);
 
+        // Not ported yet (deprecated/Windows): the right-click, group-click, canvas click/pointer
+        // and window-key filters, and QtFocus.
         if (! is_null($menu)) {
             $this->useMenu($menu, $this->window->menuBar());
         }
@@ -219,41 +203,49 @@ class QtWindow implements ToolkitWindow
         if ($this->parent instanceof self && ! $this->parent->native()->isVisible()) {
             $this->parent->present();
         }
-        // Showing the window gives its first focusable widget focus: present() posts no focus mail.
-        $this->focus->awaitFirstFocus($window);
         $window->show();
         $window->raise();
         $window->activateWindow();
         $initial = $this->initial_focus?->get();
         if (! is_null($initial) && ! $initial->isRemoved() && $initial->native()->focusPolicy() !== \Qt\FocusPolicy::NO_FOCUS) {
-            $this->focus->quietly($initial, static fn () => $initial->native()->setFocus());
+            $this->quietly($initial, static fn () => $initial->native()->setFocus());
         }
 
         return $this;
     }
 
+    /** Null until QtFocus is ported. */
     public function focused(): ?TKPrimitive
     {
-        return $this->focus->holder();
+        return null;
     }
 
     /**
-     * @throws WindowException When $primitive belongs to another window.
+     * @throws ToolkitRuntimeException When $primitive belongs to another window.
      */
     public function setInitialFocus(?TKPrimitive $primitive): static
     {
         if (! is_null($primitive) && $primitive->window() !== $this) {
-            throw new WindowException("'{$primitive->path()}' is not in window '{$this->name}'.");
+            throw new ToolkitRuntimeException("'{$primitive->path()}' is not in window '{$this->name}'.");
         }
         $this->initial_focus = is_null($primitive) ? null : WeakReference::create($primitive);
 
         return $this;
     }
 
-    /** The window's focus as primitives; primitives move focus through it. */
-    public function focusTracker(): QtFocus
+    /**
+     * Run a focus move that code makes, to $target. With a focus tracker it posts no mail for
+     * the move; QtFocus is not ported yet, so the move runs as it is.
+     */
+    public function quietly(?TKPrimitive $target, Closure $move): void
     {
-        return $this->focus;
+        $move();
+    }
+
+    /** The window's focus as primitives. Null until QtFocus is ported. */
+    public function focusTracker(): null
+    {
+        return null;
     }
 
     public function isOpen(): bool
@@ -262,8 +254,7 @@ class QtWindow implements ToolkitWindow
     }
 
     /**
-     * Whether this window is the active one, and so (macOS) whose bar the app shows.
-     * @return bool
+     * Whether this window is the active one.
      */
     public function isActive(): bool
     {
@@ -273,7 +264,6 @@ class QtWindow implements ToolkitWindow
     /**
      * The close event runs inside close(), so the mail and bookkeeping happen there, the same
      * path as the window manager's close button; Qt deletes the window on the next pump.
-     * @return void
      */
     public function close(): void
     {
@@ -287,7 +277,7 @@ class QtWindow implements ToolkitWindow
         $this->closing = false;
     }
 
-    public function parent(): ?ToolkitWindow
+    public function parent(): ?WindowContract
     {
         return $this->parent;
     }
@@ -307,7 +297,6 @@ class QtWindow implements ToolkitWindow
     /**
      * The user's close from the keyboard (Esc in a child with no cancel button): the same path as
      * the title-bar button, through the close event.
-     * @return void
      */
     public function userClose(): void
     {
@@ -315,18 +304,16 @@ class QtWindow implements ToolkitWindow
     }
 
     /**
-     * A new bar replaces the window's; QMainWindow deletes the old one.
-     * @param string $profile
-     * @return $this
+     * @throws ToolkitRuntimeException When the window is a child, or closed.
      */
     public function setMenuBar(string $profile): static
     {
-        $window = $this->live();
         ChildWindows::refuseMenuBar($this);
-        $menu = $this->driver->profile($profile);
+        $window = $this->live();
+        // A new bar takes the place of the window's bar: Qt deletes the one it had.
         $bar = new QMenuBar();
         $window->setMenuBar($bar);
-        $this->useMenu($menu, $bar);
+        $this->useMenu($this->driver->profile($profile), $bar);
 
         return $this;
     }
@@ -341,18 +328,6 @@ class QtWindow implements ToolkitWindow
     public function isToggled(string $item): bool
     {
         return $this->menuOrFail()->isToggled($item);
-    }
-
-    public function setItemEnabled(string $item, bool $enabled): static
-    {
-        $this->menuOrFail()->setItemEnabled($item, $enabled);
-
-        return $this;
-    }
-
-    public function isItemEnabled(string $item): bool
-    {
-        return $this->menuOrFail()->isItemEnabled($item);
     }
 
     public function setRadio(string $group, string $item): static
@@ -379,33 +354,16 @@ class QtWindow implements ToolkitWindow
         return $this->menuOrFail()->itemLabel($item);
     }
 
-    /**
-     * The native window, for engines that draw into it.
-     * @return QMainWindow
-     * @throws WindowException Once closed.
-     */
-    /** The window's right clicks, posted as mail. */
-    public function rightClicks(): QtRightClicks
+    public function setItemEnabled(string $item, bool $enabled): static
     {
-        return $this->right_clicks;
+        $this->menuOrFail()->setItemEnabled($item, $enabled);
+
+        return $this;
     }
 
-    /** The window's clicks on clickable groups, posted as mail. */
-    public function groupClicks(): QtGroupClicks
+    public function isItemEnabled(string $item): bool
     {
-        return $this->group_clicks;
-    }
-
-    /** The window's canvas clicks, posted as mail. */
-    public function canvasClicks(): QtCanvasClicks
-    {
-        return $this->canvas_clicks;
-    }
-
-    /** The window's canvas presses, drags, releases and wheels, posted as mail. */
-    public function canvasPointer(): QtCanvasPointer
-    {
-        return $this->canvas_pointer;
+        return $this->menuOrFail()->isItemEnabled($item);
     }
 
     /** Where views go: the central widget, below the menu bar. */
@@ -414,6 +372,10 @@ class QtWindow implements ToolkitWindow
         return $this->central;
     }
 
+    /**
+     * The native window, for engines that draw into it.
+     * @throws ToolkitRuntimeException Once closed.
+     */
     public function native(): QMainWindow
     {
         return $this->live();
@@ -421,7 +383,6 @@ class QtWindow implements ToolkitWindow
 
     /**
      * The central widget, where the content container goes.
-     * @return QWidget
      */
     public function centralWidget(): QWidget
     {
@@ -436,14 +397,17 @@ class QtWindow implements ToolkitWindow
         return [$size->width(), $size->height()];
     }
 
-    public function factory(): QtPrimitiveFactory
+    /**
+     * This window's minter, one per window. Typed as the contract so the window loads without
+     * loading every primitive class.
+     */
+    public function factory(): PrimitiveFactory
     {
         return $this->factory ??= new QtPrimitiveFactory($this);
     }
 
     /**
      * The session the window's primitives post through.
-     * @return QtSession
      */
     public function session(): QtSession
     {
@@ -453,7 +417,6 @@ class QtWindow implements ToolkitWindow
     /**
      * Apply the content container's align() inside the central widget. For the content container.
      * @param TKPrimitiveGroup&QtNative $content
-     * @return void
      */
     public function placeContent(TKPrimitiveGroup&QtNative $content): void
     {
@@ -462,38 +425,16 @@ class QtWindow implements ToolkitWindow
 
     /**
      * The content container fills the central widget.
-     * @param TKPrimitiveGroup $content
-     * @return void
-     * @throws WindowException When the container is not a Qt primitive.
+     * @throws ToolkitRuntimeException When the container is not a Qt primitive.
      */
     protected function mountContent(TKPrimitiveGroup $content): void
     {
         if (! $content instanceof QtNative) {
-            throw new WindowException("'{$content->path()}' is not a Qt primitive.");
+            throw new ToolkitRuntimeException("'{$content->path()}' is not a Qt primitive.");
         }
         $this->central_layout->addWidget($content->native(), 1);
     }
 
-    public function menuBar(): ?QtMenuBar
-    {
-        return $this->menu;
-    }
-
-    /**
-     * Qt shows a window's bar inside it on Linux and, while it is active, as the app's bar on macOS.
-     * @param MenuProfile $menu
-     * @param QMenuBar $bar
-     * @return void
-     */
-    protected function useMenu(MenuProfile $menu, QMenuBar $bar): void
-    {
-        $this->menu = new QtMenuBar($this->session, $menu, $bar, $this->name, $this->driver->about(), $this->window);
-    }
-
-    /**
-     * @param EventType|int $type
-     * @return void
-     */
     protected function filtered(EventType|int $type): void
     {
         if ($type === EventType::WINDOW_ACTIVATE) {
@@ -537,7 +478,6 @@ class QtWindow implements ToolkitWindow
     /**
      * The one close path: tear the content tree down while the native window still holds it,
      * drop the window's pending resize mail, post the close, let the driver forget the window.
-     * @return void
      */
     protected function closed(): void
     {
@@ -545,13 +485,12 @@ class QtWindow implements ToolkitWindow
             return;
         }
 
-        $this->right_clicks->detach();
-        $this->group_clicks->detach();
-        $this->canvas_clicks->detach();
-        $this->canvas_pointer->detach();
-        $this->focus->detach();
-        $this->window_keys->detach();
         $this->removeContent();
+        // Keep the native's PHP wrapper until this object goes. closed() runs inside the window's
+        // own close event filter; an ext-qt before 2026-11-12 deleted the QMainWindow when the
+        // last reference dropped there, while Qt was still sending it that event. Qt deletes the
+        // window itself after the close (DELETE_ON_CLOSE), so nothing is lost by holding it.
+        $this->departed = $this->window;
         $this->window = null;
         $this->session->forgetLatest("window.resized.{$this->name}");
         $this->session->post(new WindowClosed($this->name));
@@ -560,11 +499,26 @@ class QtWindow implements ToolkitWindow
 
     protected function live(): QMainWindow
     {
-        return $this->window ?? throw new WindowException("Window '{$this->name}' is closed.");
+        return $this->window ?? throw new ToolkitRuntimeException("Window '{$this->name}' is closed.");
+    }
+
+    public function menuBar(): ?QtMenuBar
+    {
+        return $this->menu;
+    }
+
+    /**
+     * Qt shows a window's bar inside it on Linux and, while it is active, as the app's bar on macOS.
+     */
+    protected function useMenu(MenuProfile $menu, QMenuBar $bar): void
+    {
+        // Menu shortcuts come before the focused widget's own editing keys.
+        $this->driver->menuKeys();
+        $this->menu = new QtMenuBar($this->session, $menu, $bar, $this->name, $this->driver->about(), $this->window);
     }
 
     protected function menuOrFail(): QtMenuBar
     {
-        return $this->menu ?? throw new WindowException("Window '{$this->name}' has no menu bar.");
+        return $this->menu ?? throw new ToolkitRuntimeException("Window '{$this->name}' has no menu bar.");
     }
 }

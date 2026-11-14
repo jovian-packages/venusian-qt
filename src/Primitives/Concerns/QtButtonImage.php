@@ -13,7 +13,7 @@ use Qt\AlignmentFlag;
 use Qt\TextFormat;
 use Qt\WidgetAttribute;
 use Surface\Contracts\Framebuffers\Framebuffer;
-use Surface\Contracts\Windows\Primitives\ImagePosition;
+use Surface\Contracts\Toolkits\Primitives\ImagePosition;
 
 /**
  * A push or toggle button's face: its label, and a Framebuffer image as a QIcon of a QPixmap

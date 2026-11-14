@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Windows\QtCanvasClicks;
+use Windows\QtCanvasClicks;
 use QEvent\Type;
 use Surface\Contracts\Windows\Mail\View\CanvasClicked;
 

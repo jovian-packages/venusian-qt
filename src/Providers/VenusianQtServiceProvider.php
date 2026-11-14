@@ -2,11 +2,13 @@
 
 namespace Jovian\Toolkits\Qt\Providers;
 
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 use ReflectionException;
+use Surface\Toolkits\Toolkits;
+use Jovian\Toolkits\Qt\QtBridge;
 use Voyager\Contracts\Core\FrameworkCore;
 use Voyager\NutsAndBolts\ServiceProvider;
-use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver as Driver;
-use Jovian\Toolkits\Qt\Contracts\Bridge\QtBridgeDriver as DriverContract;
 
 class VenusianQtServiceProvider extends ServiceProvider
 {
@@ -19,13 +21,20 @@ class VenusianQtServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->registerSingleton(DriverContract::class, fn (FrameworkCore $app) => $app->get('toolkit-bridge')->driver('qt'));
-        $this->app->alias('qt-bridge', DriverContract::class);
+        $this->app->registerSingleton(QtBridge::class, fn (FrameworkCore $app) => Toolkits::bridge('qt'));
+        $this->app->alias('qt-bridge', QtBridge::class);
     }
 
-    /** The toolkit's driver, registered on the bridge by this package: Surface names no toolkit. */
+    /**
+     * The toolkit's driver, registered on the bridge by this package: Surface names no toolkit.
+     *
+     * @return void
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
     public function boot(): void
     {
-        $this->app->get('toolkit-bridge')->extend('qt', fn ($app): Driver => new Driver($app));
+        $toolkits = $this->app->get('toolkit-bridge-manager');
+        $toolkits->extend('qt', fn ($app): QtBridge => new QtBridge($app));
     }
 }

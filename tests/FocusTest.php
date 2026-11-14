@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Windows\QtWindow;
 use Surface\Contracts\Windows\Mail\View\FocusGained;
 use Surface\Contracts\Windows\Mail\View\FocusLost;
 use Surface\Contracts\Windows\Primitives\TableColumn;
 use Surface\Contracts\Windows\WindowException;
+use Windows\QtWindow;
 
 beforeEach(function (): void {
     driver()->closeAll();

@@ -13,7 +13,7 @@ use QObject;
  * ShortcutOverride key event to the focused widget, and a widget that accepts it (QLineEdit and
  * QPlainTextEdit do, for their editing keys) keeps the key from the shortcut. This application
  * filter eats every ShortcutOverride: no widget accepts one, Qt tries the shortcuts, and a key no
- * shortcut takes reaches the widget as a normal key press. The driver makes one when it connects.
+ * shortcut takes reaches the widget as a normal key press. The driver makes one for the first menu bar.
  */
 final class QtMenuKeys
 {

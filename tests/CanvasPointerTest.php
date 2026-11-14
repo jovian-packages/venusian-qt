@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Windows\QtCanvasPointer;
-use Jovian\Toolkits\Qt\Windows\QtWindow;
+use Windows\QtCanvasPointer;
+use Windows\QtWindow;
 use QContextMenuEvent\Reason;
 use QEvent\Type;
 use Qt\MouseEventSource;

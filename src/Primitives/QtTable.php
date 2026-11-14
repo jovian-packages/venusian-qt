@@ -11,12 +11,12 @@ use QObject;
 use QSizePolicy\Policy;
 use QTableWidget;
 use QTableWidgetItem;
-use Surface\Contracts\Windows\Mail\View\RowSelected;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\Primitives\TableColumn;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
-use Surface\Windows\Primitives\TKTable;
+use Surface\Contracts\Toolkits\Mail\Views\RowSelected;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\Primitives\TableColumn;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
+use Surface\Toolkits\Primitives\TKTable;
 
 /**
  * A read-only QTableWidget: whole rows, one at a time. The selected row is read from the

@@ -69,7 +69,7 @@ afterEach(function (): void {
     takeMail(session());
 });
 
-/** @return array{\Jovian\Toolkits\Qt\Windows\QtWindow, QtCanvas} a shown window with a filling canvas */
+/** @return array{\Windows\QtWindow, QtCanvas} a shown window with a filling canvas */
 function qtVulkanCanvas(int $width = 300, int $height = 200): array
 {
     $window = driver()->open('main', $width, $height);
