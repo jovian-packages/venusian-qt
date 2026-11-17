@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
-use Jovian\Toolkits\Qt\Bridge\QtSession;
+use deprecated\Bridge\QtBridgeDriver;
+use deprecated\Bridge\QtSession;
 use Surface\Bridge\ToolkitManager;
 use Surface\Bridge\ToolkitPump;
 use Surface\Contracts\Drawing\LentSurface;
@@ -247,7 +247,7 @@ function requireEngine(string $device): void
  * so the window must be active, on top; macOS may decline that while another app is in front, and
  * there the test is skipped with that reason.
  */
-function canvasShownAt(Jovian\Toolkits\Qt\Windows\QtWindow $window, QWidget $widget, float $x, float $y): array
+function canvasShownAt(Windows\QtWindow $window, QWidget $widget, float $x, float $y): array
 {
     $window->present();
     for ($waited = 0; (! $widget->isVisible() || ! $window->native()->isActiveWindow()) && $waited < 60; $waited++) {

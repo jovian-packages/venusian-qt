@@ -12,12 +12,12 @@ use QObject;
 use QSizePolicy\Policy;
 use QSplitter;
 use Qt\Orientation;
-use Surface\Contracts\Windows\Mail\View\SplitMoved;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\Primitives\TKPrimitive as Child;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
-use Surface\Windows\Primitives\TKSplitView;
+use Surface\Contracts\Toolkits\Mail\Views\SplitMoved;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitive as Child;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
+use Surface\Toolkits\Primitives\TKSplitView;
 use WeakReference;
 
 /**

@@ -8,11 +8,11 @@ use QLabel;
 use Qt\AlignmentFlag;
 use Qt\TextFormat;
 use Qt\TextInteractionFlag;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\Styling\TextAlignment;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKLink;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\Styling\TextAlignment;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKLink;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 
 /**
  * A link over a rich-text QLabel holding one anchor: Qt opens the URL when it is clicked or

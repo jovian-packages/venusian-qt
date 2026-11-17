@@ -2,9 +2,9 @@
 
 namespace Jovian\Toolkits\Qt\Services;
 
-use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
-use Jovian\Toolkits\Qt\Bridge\QtSession;
-use Jovian\Toolkits\Qt\Windows\QtWindow;
+use Jovian\Toolkits\Qt\QtBridge;
+use Jovian\Toolkits\Qt\QtSession;
+use Jovian\Toolkits\Qt\QtWindow;
 use QCheckBox;
 use QDialog;
 use QDir\Filter;
@@ -16,13 +16,13 @@ use QMetaObject\Connection;
 use QObject;
 use QPushButton;
 use Qt\WindowModality;
-use Surface\Contracts\Windows\Services\Alert;
-use Surface\Contracts\Windows\Services\AlertStyle;
-use Surface\Contracts\Windows\Services\DialogCapability;
-use Surface\Contracts\Windows\Services\OpenRequest;
-use Surface\Contracts\Windows\Services\SaveRequest;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Services\ToolkitDialogs;
+use Surface\Contracts\Toolkits\Services\Alert;
+use Surface\Contracts\Toolkits\Services\AlertStyle;
+use Surface\Contracts\Toolkits\Services\DialogCapability;
+use Surface\Contracts\Toolkits\Services\OpenRequest;
+use Surface\Contracts\Toolkits\Services\SaveRequest;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Services\ToolkitDialogs;
 use Voyager\Contracts\Signals\NamedSignal;
 use WeakReference;
 
@@ -38,7 +38,7 @@ final class QtDialogs extends ToolkitDialogs
      */
     private array $open = [];
 
-    public function __construct(QtBridgeDriver $driver, private readonly QtSession $session)
+    public function __construct(QtBridge $driver, private readonly QtSession $session)
     {
         parent::__construct($driver);
     }

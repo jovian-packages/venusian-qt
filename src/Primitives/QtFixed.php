@@ -6,11 +6,11 @@ use Jovian\Toolkits\Qt\Contracts\Primitives\QtContainer;
 use Jovian\Toolkits\Qt\Contracts\Primitives\QtNative;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QWidget;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\Primitives\TKPrimitive as Child;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKFixed;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitive as Child;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKFixed;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 
 /**
  * A QWidget with no layout: children are parented to it and placed by geometry.

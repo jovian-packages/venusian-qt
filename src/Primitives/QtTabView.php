@@ -9,13 +9,13 @@ use QObject;
 use QSizePolicy\Policy;
 use QTabWidget;
 use QWidget;
-use Surface\Contracts\Windows\Mail\View\TabSelected;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\Primitives\TKColumn;
-use Surface\Contracts\Windows\Primitives\TKPrimitive as Child;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
-use Surface\Windows\Primitives\TKTabView;
+use Surface\Contracts\Toolkits\Mail\Views\TabSelected;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\Primitives\TKColumn;
+use Surface\Contracts\Toolkits\Primitives\TKPrimitive as Child;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
+use Surface\Toolkits\Primitives\TKTabView;
 
 /**
  * A QTabWidget with one tab per page. currentChanged fires for every change of page: Qt's own

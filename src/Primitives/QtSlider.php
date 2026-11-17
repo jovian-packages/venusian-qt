@@ -8,11 +8,11 @@ use QObject;
 use QSizePolicy\Policy;
 use QSlider;
 use Qt\Orientation;
-use Surface\Contracts\Windows\Mail\View\ValueChanged;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
-use Surface\Windows\Primitives\TKSlider;
+use Surface\Contracts\Toolkits\Mail\Views\ValueChanged;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
+use Surface\Toolkits\Primitives\TKSlider;
 
 /**
  * QSlider is integer-valued: the float range [min, max] maps onto 0..STEPS.

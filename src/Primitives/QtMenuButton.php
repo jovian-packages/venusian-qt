@@ -10,16 +10,16 @@ use QIcon;
 use QPixmap;
 use QSize;
 use QSizePolicy\Policy;
+use Qt\ToolButtonStyle;
 use QToolButton;
 use QToolButton\ToolButtonPopupMode;
-use Qt\ToolButtonStyle;
 use Surface\Contracts\Framebuffers\Framebuffer;
-use Surface\Contracts\Windows\Menus\ContextMenu as ContextMenuContract;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Menus\ContextMenu;
-use Surface\Windows\Primitives\TKMenuButton;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Surface\Contracts\Toolkits\Menus\ContextMenu as ContextMenuContract;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Menus\ContextMenu;
+use Surface\Toolkits\Primitives\TKMenuButton;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 
 /**
  * A QToolButton that pops its menu at once: the QMenu QtContextMenu builds, whose actions post

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Bridge\QtBridgeDriver;
+use deprecated\Bridge\QtBridgeDriver;
 use Surface\Contracts\Bridge\BridgeException;
 use Voyager\Config\Repository;
 use Voyager\Vessel\ControlPanel;

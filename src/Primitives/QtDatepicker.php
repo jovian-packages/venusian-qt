@@ -8,14 +8,14 @@ use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QDate;
 use QDateEdit;
 use QObject;
-use Qt\DateFormat;
 use QSizePolicy\Policy;
-use Surface\Contracts\Windows\Mail\View\DateChanged;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Contracts\Windows\WindowException;
-use Surface\Windows\Primitives\TKDatepicker;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Qt\DateFormat;
+use Surface\Contracts\Toolkits\Mail\Views\DateChanged;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Contracts\Toolkits\ToolkitRuntimeException;
+use Surface\Toolkits\Primitives\TKDatepicker;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 
 /**
  * A QDateEdit with its calendar popup, showing years 100 to 9999 (Qt's widest; its default
@@ -31,7 +31,7 @@ class QtDatepicker extends TKDatepicker implements QtNative
     public const string FIRST_DAY = '0100-01-01';
 
     /**
-     * @throws WindowException When the date is outside years 100 to 9999.
+     * @throws ToolkitRuntimeException When the date is outside years 100 to 9999.
      */
     public function __construct(string $name, ToolkitWindow $window, ?TKPrimitiveGroup $parent, Placement $placement, ?DateTimeImmutable $date)
     {
@@ -52,7 +52,7 @@ class QtDatepicker extends TKDatepicker implements QtNative
     }
 
     /**
-     * @throws WindowException When the date is outside years 100 to 9999.
+     * @throws ToolkitRuntimeException When the date is outside years 100 to 9999.
      */
     public function setDate(?DateTimeImmutable $date): static
     {
@@ -96,13 +96,13 @@ class QtDatepicker extends TKDatepicker implements QtNative
     /**
      * @param DateTimeImmutable|null $date
      * @return void
-     * @throws WindowException
+     * @throws ToolkitRuntimeException
      */
     protected static function guardYear(?DateTimeImmutable $date): void
     {
         $year = is_null($date) ? null : (int) $date->format('Y');
         if (! is_null($year) && ($year < 100 || $year > 9999)) {
-            throw new WindowException("A date picker shows years 100 to 9999, got {$year}.");
+            throw new ToolkitRuntimeException("A date picker shows years 100 to 9999, got {$year}.");
         }
     }
 

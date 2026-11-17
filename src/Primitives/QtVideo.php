@@ -18,15 +18,15 @@ use QUrl;
 use QVBoxLayout;
 use QVideoWidget;
 use QWidget;
-use Surface\Contracts\Windows\Mail\View\VideoEnded;
-use Surface\Contracts\Windows\Mail\View\VideoFailed;
-use Surface\Contracts\Windows\Mail\View\VideoPaused;
-use Surface\Contracts\Windows\Mail\View\VideoPlaying;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Contracts\Windows\WindowException;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
-use Surface\Windows\Primitives\TKVideo;
+use Surface\Contracts\Toolkits\Mail\Views\VideoEnded;
+use Surface\Contracts\Toolkits\Mail\Views\VideoFailed;
+use Surface\Contracts\Toolkits\Mail\Views\VideoPaused;
+use Surface\Contracts\Toolkits\Mail\Views\VideoPlaying;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Contracts\Toolkits\ToolkitRuntimeException;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
+use Surface\Toolkits\Primitives\TKVideo;
 use WeakReference;
 
 /**
@@ -74,7 +74,7 @@ class QtVideo extends TKVideo implements QtNative
     protected bool $scrubbing = false;
 
     /**
-     * @throws WindowException When Qt loaded no media backend: nothing could play.
+     * @throws ToolkitRuntimeException When Qt loaded no media backend: nothing could play.
      */
     public function __construct(string $name, ToolkitWindow $window, ?TKPrimitiveGroup $parent, Placement $placement, ?string $file)
     {
@@ -82,7 +82,7 @@ class QtVideo extends TKVideo implements QtNative
 
         $player = new QMediaPlayer();
         if (! $player->isAvailable()) {
-            throw new WindowException('TKVideo needs a Qt Multimedia backend plugin (Debian: libqt6multimedia6; Homebrew: qt).');
+            throw new ToolkitRuntimeException('TKVideo needs a Qt Multimedia backend plugin (Debian: libqt6multimedia6; Homebrew: qt).');
         }
 
         $host = $this->adoptNative(new QWidget());

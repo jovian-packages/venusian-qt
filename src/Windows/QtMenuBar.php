@@ -2,10 +2,10 @@
 
 namespace Jovian\Toolkits\Qt\Windows;
 
-use Jovian\Toolkits\Qt\Bridge\QtSession;
+use Jovian\Toolkits\Qt\QtSession;
 use QAction;
-use QActionGroup;
 use QAction\MenuRole as QtMenuRole;
+use QActionGroup;
 use QApplication;
 use QKeySequence;
 use QKeySequence\SequenceFormat;
@@ -15,16 +15,16 @@ use QMenuBar;
 use QObject;
 use QPlainTextEdit;
 use QWidget;
-use Surface\Contracts\Windows\Mail\MenuActivated;
-use Surface\Contracts\Windows\Mail\MenuRadioChosen;
-use Surface\Contracts\Windows\Mail\MenuToggled;
-use Surface\Contracts\Windows\Mail\QuitRequested;
-use Surface\Contracts\Windows\Menus\MenuRole;
-use Surface\Contracts\Windows\WindowException;
-use Surface\Windows\Menus\Accelerator;
-use Surface\Windows\Menus\MenuItem;
-use Surface\Windows\Menus\MenuProfile;
-use Surface\Windows\Menus\MenuStates;
+use Surface\Contracts\Toolkits\Mail\Menus\MenuActivated;
+use Surface\Contracts\Toolkits\Mail\Menus\MenuRadioChosen;
+use Surface\Contracts\Toolkits\Mail\Menus\MenuToggled;
+use Surface\Contracts\Toolkits\Mail\QuitRequested;
+use Surface\Contracts\Toolkits\Menus\MenuRole;
+use Surface\Contracts\Toolkits\ToolkitRuntimeException;
+use Surface\Toolkits\Menus\Accelerator;
+use Surface\Toolkits\Menus\MenuItem;
+use Surface\Toolkits\Menus\MenuProfile;
+use Surface\Toolkits\Menus\MenuStates;
 
 /**
  * A menu profile built once into a QMenuBar: folders become menus, items QActions whose
@@ -108,7 +108,7 @@ class QtMenuBar
 
     /**
      * Set the state of a node; the node and the nodes below it show their effective state. Posts nothing.
-     * @throws WindowException
+     * @throws ToolkitRuntimeException
      */
     public function setItemEnabled(string $item, bool $enabled): void
     {
@@ -118,7 +118,7 @@ class QtMenuBar
         }
     }
 
-    /** @throws WindowException */
+    /** @throws ToolkitRuntimeException */
     public function isItemEnabled(string $item): bool
     {
         return $this->states->isEnabled($item);
@@ -133,11 +133,11 @@ class QtMenuBar
      * One item's action, by its profile id.
      * @param string $id
      * @return QAction
-     * @throws WindowException
+     * @throws ToolkitRuntimeException
      */
     public function action(string $id): QAction
     {
-        return $this->actions[$id] ?? throw new WindowException("No node '{$id}' in menu profile '{$this->profile->name}'.");
+        return $this->actions[$id] ?? throw new ToolkitRuntimeException("No node '{$id}' in menu profile '{$this->profile->name}'.");
     }
 
     /**
@@ -160,20 +160,20 @@ class QtMenuBar
         return $this->states->toggle($item);
     }
 
-    /** setChecked emits toggled, never triggered: nothing posts. @throws WindowException When no radio group has the name, or the item is not in it. */
+    /** setChecked emits toggled, never triggered: nothing posts. @throws ToolkitRuntimeException When no radio group has the name, or the item is not in it. */
     public function setRadio(string $group, string $item): void
     {
         $this->states->setRadio($group, $item);
         $this->action($item)->setChecked(true);
     }
 
-    /** @throws WindowException When no radio group has the name. */
+    /** @throws ToolkitRuntimeException When no radio group has the name. */
     public function radio(string $group): string
     {
         return $this->states->radio($group);
     }
 
-    /** @throws WindowException When no radio group has the name. */
+    /** @throws ToolkitRuntimeException When no radio group has the name. */
     public function radioGroup(string $group): QActionGroup
     {
         $this->states->radio($group);
@@ -181,14 +181,14 @@ class QtMenuBar
         return $this->groups[$group];
     }
 
-    /** An item's action, or a folder's menu action, shows the label. @throws WindowException When no node has the id. */
+    /** An item's action, or a folder's menu action, shows the label. @throws ToolkitRuntimeException When no node has the id. */
     public function setItemLabel(string $item, string $label): void
     {
         $this->states->setLabel($item, $label);
         $this->action($item)->setText(self::literal($label));
     }
 
-    /** @throws WindowException When no node has the id. */
+    /** @throws ToolkitRuntimeException When no node has the id. */
     public function itemLabel(string $item): string
     {
         return $this->states->label($item);
@@ -202,7 +202,7 @@ class QtMenuBar
 
     protected function toggle(string $item): QAction
     {
-        return $this->toggles[$item] ?? throw new WindowException("No toggle item '{$item}' in menu profile '{$this->profile->name}'.");
+        return $this->toggles[$item] ?? throw new ToolkitRuntimeException("No toggle item '{$item}' in menu profile '{$this->profile->name}'.");
     }
 
     protected function fill(QMenu $menu, MenuItem $folder): void

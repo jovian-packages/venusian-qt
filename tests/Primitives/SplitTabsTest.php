@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Jovian\Toolkits\Qt\Primitives\QtSplitView;
-use Jovian\Toolkits\Qt\Windows\QtWindow;
+use Windows\QtWindow;
 use QEvent\Type;
 use Surface\Bridge\ToolkitPump;
 use Surface\Contracts\Windows\Mail\View\SplitMoved;

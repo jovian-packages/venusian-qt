@@ -8,12 +8,12 @@ use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QObject;
 use QPushButton;
 use QSizePolicy\Policy;
-use Surface\Contracts\Windows\Mail\View\Toggled;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
+use Surface\Contracts\Toolkits\Mail\Views\Toggled;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
 use Surface\NutsAndBolts\Color;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
-use Surface\Windows\Primitives\TKToggleButton;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
+use Surface\Toolkits\Primitives\TKToggleButton;
 
 /**
  * A checkable QPushButton: pressed is checked.

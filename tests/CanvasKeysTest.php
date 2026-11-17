@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Windows\QtWindow;
 use QEvent\Type;
 use Surface\Contracts\HumanInput\Key;
 use Surface\Contracts\HumanInput\Modifiers;
@@ -14,6 +13,7 @@ use Surface\Contracts\Windows\Mail\View\KeyReleased;
 use Surface\Contracts\Windows\Mail\View\TextCommitted;
 use Surface\Contracts\Windows\Mail\WindowKeyPressed;
 use Surface\Contracts\Windows\Primitives\ButtonRole;
+use Windows\QtWindow;
 
 // Key events sent to the canvas's host widget, as Qt delivers them. A QKeyEvent made in PHP carries
 // no native codes, so the physical key reads Key::UNKNOWN here. Modifiers: Shift 0x02000000,
@@ -151,8 +151,8 @@ it('reads a real event\'s native key 0 as the A key on macOS, and an event made 
     $real = new QKeyEvent(Type::KEY_PRESS, Qt\Key::A->value, 0, 'a');
     $real->setTimestamp(1);
 
-    expect(Jovian\Toolkits\Qt\Windows\QtWindowKeys::keyOf($made))->toBe(Key::UNKNOWN)
-        ->and(Jovian\Toolkits\Qt\Windows\QtWindowKeys::keyOf($real))->toBe(PHP_OS_FAMILY === 'Darwin' ? Key::A : Key::UNKNOWN);
+    expect(Windows\QtWindowKeys::keyOf($made))->toBe(Key::UNKNOWN)
+        ->and(Windows\QtWindowKeys::keyOf($real))->toBe(PHP_OS_FAMILY === 'Darwin' ? Key::A : Key::UNKNOWN);
 });
 
 it('posts the text an input method commits', function (): void {

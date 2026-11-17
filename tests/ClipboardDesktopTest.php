@@ -26,7 +26,7 @@ function clipboardMail(): array
 }
 
 /** Present $window and pump until Qt makes it the active window, up to 2 s. */
-function presentActive(Jovian\Toolkits\Qt\Windows\QtWindow $window): void
+function presentActive(Windows\QtWindow $window): void
 {
     $window->present();
     $end = microtime(true) + 2.0;

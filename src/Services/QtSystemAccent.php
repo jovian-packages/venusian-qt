@@ -4,7 +4,7 @@ namespace Jovian\Toolkits\Qt\Services;
 
 use QGuiApplication;
 use QPalette;
-use Surface\Contracts\Windows\Services\SystemAccent;
+use Surface\Contracts\Toolkits\Services\SystemAccent;
 use Surface\NutsAndBolts\Color;
 
 /** The accent role of Qt's application palette (QPalette::Accent, Qt 6.6 and later); null on an older Qt. */

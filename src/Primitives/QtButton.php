@@ -8,14 +8,14 @@ use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use QObject;
 use QPushButton;
 use QSizePolicy\Policy;
-use Surface\Contracts\Windows\Mail\View\ButtonClicked;
-use Surface\Contracts\Windows\Primitives\ButtonRole;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\Styling\TextAlignment;
-use Surface\Contracts\Windows\ToolkitWindow;
+use Surface\Contracts\Toolkits\Mail\Views\ButtonClicked;
+use Surface\Contracts\Toolkits\Primitives\ButtonRole;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\Styling\TextAlignment;
+use Surface\Contracts\Toolkits\ToolkitWindow;
 use Surface\NutsAndBolts\Color;
-use Surface\Windows\Primitives\TKButton;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Surface\Toolkits\Primitives\TKButton;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 
 class QtButton extends TKButton implements QtNative
 {

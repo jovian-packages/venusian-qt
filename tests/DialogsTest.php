@@ -5,8 +5,8 @@ declare(strict_types=1);
 use QEvent\Type;
 use Surface\Contracts\Windows\Mail\Services\AlertAnswered;
 use Surface\Contracts\Windows\Mail\Services\FilesChosen;
-use Surface\Contracts\Windows\Mail\WindowCloseRequested;
 use Surface\Contracts\Windows\Mail\WindowClosed;
+use Surface\Contracts\Windows\Mail\WindowCloseRequested;
 use Surface\Contracts\Windows\Services\Alert;
 use Surface\Contracts\Windows\Services\AlertStyle;
 use Surface\Contracts\Windows\Services\DialogCapability;
@@ -33,7 +33,7 @@ function dialogMail(): array
 }
 
 /** A shown main window. */
-function shownMain(): Jovian\Toolkits\Qt\Windows\QtWindow
+function shownMain(): Windows\QtWindow
 {
     $main = driver()->open('main', 480, 320);
     $main->present();

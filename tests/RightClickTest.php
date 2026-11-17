@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Windows\QtWindow;
+use Windows\QtWindow;
 use QContextMenuEvent\Reason;
 use QEvent\Type;
 use Surface\Contracts\Windows\Mail\MenuActivated;
@@ -231,7 +231,7 @@ it('builds a context menu folder with enabled false disabled, and the items belo
         ['label' => 'Share', 'enabled' => false, 'items' => [['label' => 'Copy Link']]],
         ['label' => 'Download'],
     ]);
-    $menu = new Jovian\Toolkits\Qt\Windows\QtContextMenu($go->contextMenu(), 'main', session());
+    $menu = new Windows\QtContextMenu($go->contextMenu(), 'main', session());
 
     expect($menu->action('share')->isEnabled())->toBeFalse()
         ->and($menu->action('share.copy-link')->isEnabled())->toBeFalse()

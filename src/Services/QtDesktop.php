@@ -5,8 +5,8 @@ namespace Jovian\Toolkits\Qt\Services;
 use InvalidArgumentException;
 use QDesktopServices;
 use QUrl;
-use Surface\Contracts\Windows\Services\Desktop;
-use Surface\Windows\Services\WebAddress;
+use Surface\Contracts\Toolkits\Services\Desktop;
+use Surface\Toolkits\Services\WebAddress;
 
 final class QtDesktop implements Desktop
 {

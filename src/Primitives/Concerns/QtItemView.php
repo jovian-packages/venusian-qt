@@ -22,10 +22,10 @@ use QStandardItemModel;
 use QStyleOptionViewItem;
 use Qt\AspectRatioMode;
 use Qt\TransformationMode;
-use Surface\Contracts\Windows\Mail\View\ItemActionClicked;
-use Surface\Contracts\Windows\Mail\View\ItemActivated;
-use Surface\Contracts\Windows\Mail\View\ViewScrolled;
-use Surface\Contracts\Windows\Styling\ScrollPosition;
+use Surface\Contracts\Toolkits\Mail\Views\ItemActionClicked;
+use Surface\Contracts\Toolkits\Mail\Views\ItemActivated;
+use Surface\Contracts\Toolkits\Mail\Views\ViewScrolled;
+use Surface\Contracts\Toolkits\Styling\ScrollPosition;
 
 /**
  * An item view's model, painting and scrolling: a QListView over a QStandardItemModel of one

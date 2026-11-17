@@ -7,10 +7,10 @@ use Jovian\Toolkits\Qt\Primitives\Concerns\QtPrimitive;
 use Jovian\Toolkits\Qt\Primitives\Concerns\QtStack;
 use QVBoxLayout;
 use QWidget;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKColumn;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKColumn;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 
 class QtColumn extends TKColumn implements QtContainer
 {

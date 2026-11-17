@@ -17,12 +17,12 @@ use Qt\AlignmentFlag;
 use Qt\AspectRatioMode;
 use Qt\TransformationMode;
 use QWidget;
-use Surface\Contracts\Windows\Primitives\ImageScaling;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Contracts\Windows\WindowException;
-use Surface\Windows\Primitives\TKImage;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Surface\Contracts\Toolkits\Primitives\ImageScaling;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Contracts\Toolkits\ToolkitRuntimeException;
+use Surface\Toolkits\Primitives\TKImage;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 use WeakReference;
 
 /**
@@ -68,7 +68,7 @@ class QtImage extends TKImage implements QtNative
     protected ?array $rendered_for = null;
 
     /**
-     * @throws WindowException When the file cannot be loaded.
+     * @throws ToolkitRuntimeException When the file cannot be loaded.
      */
     public function __construct(string $name, ToolkitWindow $window, ?TKPrimitiveGroup $parent, Placement $placement, ?string $file)
     {
@@ -119,7 +119,7 @@ class QtImage extends TKImage implements QtNative
      * An unloadable file leaves the image empty and throws; file() keeps the path asked for.
      * @param string|null $file
      * @return void
-     * @throws WindowException
+     * @throws ToolkitRuntimeException
      */
     protected function applyFile(?string $file): void
     {
@@ -131,7 +131,7 @@ class QtImage extends TKImage implements QtNative
             if (! $pixmap->load($file)) {
                 $this->settle();
 
-                throw new WindowException("Image '{$file}' could not be loaded.");
+                throw new ToolkitRuntimeException("Image '{$file}' could not be loaded.");
             }
             $this->pixmap = $pixmap;
         }

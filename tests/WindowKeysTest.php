@@ -31,7 +31,7 @@ function sendKey(QWidget $widget, Qt\Key $key, int $modifiers = 0, string $text 
 }
 
 /** A shown window with two text inputs, the first focused. */
-function keysWindow(): Jovian\Toolkits\Qt\Windows\QtWindow
+function keysWindow(): Windows\QtWindow
 {
     $main = driver()->open('main', 480, 320);
     $column = $main->column('m');

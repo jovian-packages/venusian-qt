@@ -17,11 +17,11 @@ use QRect;
 use QSize;
 use QSizePolicy\Policy;
 use Qt\AlignmentFlag;
-use Surface\Contracts\Windows\Primitives\CollectionItem;
-use Surface\Contracts\Windows\Primitives\Placement;
-use Surface\Contracts\Windows\ToolkitWindow;
-use Surface\Windows\Primitives\TKCollectionView;
-use Surface\Windows\Primitives\TKPrimitiveGroup;
+use Surface\Contracts\Toolkits\Primitives\CollectionItem;
+use Surface\Contracts\Toolkits\Primitives\Placement;
+use Surface\Contracts\Toolkits\ToolkitWindow;
+use Surface\Toolkits\Primitives\TKCollectionView;
+use Surface\Toolkits\Primitives\TKPrimitiveGroup;
 
 /**
  * A QListView in icon mode, wrapping left to right in a grid the cell size plus a margin. The

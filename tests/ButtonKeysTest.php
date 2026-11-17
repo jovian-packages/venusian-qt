@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use Jovian\Toolkits\Qt\Windows\QtWindow;
 use QEvent\Type;
 use Surface\Contracts\Windows\Mail\View\ButtonClicked;
-use Surface\Contracts\Windows\Mail\WindowCloseRequested;
 use Surface\Contracts\Windows\Mail\WindowClosed;
+use Surface\Contracts\Windows\Mail\WindowCloseRequested;
 use Surface\Contracts\Windows\Primitives\ButtonRole;
 use Surface\Contracts\Windows\Primitives\TableColumn;
 use Surface\Contracts\Windows\Primitives\TreeNode;
+use Windows\QtWindow;
 
 /** Qt::KeypadModifier and Qt::ShiftModifier. */
 const KEYPAD = 0x20000000;
