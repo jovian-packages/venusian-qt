@@ -21,7 +21,8 @@ use Surface\Toolkits\Primitives\TKPrimitiveGroup;
  * A widget holding one label, which shows the pixels it was last given as a pixmap stretched over
  * the widget (the alpha byte is not read, so opaque). It has no natural size: the layout sizes it.
  *
- * It shows pixels and nothing more: it takes no keys or pointer events, and lends no GPU surface.
+ * It takes no keys or pointer events. It lends its widget to an engine that draws there itself (a
+ * Vulkan engine puts its own window in it); the label stays under whatever the engine adds.
  */
 class QtCanvas extends TKCanvas implements QtNative
 {
@@ -46,6 +47,14 @@ class QtCanvas extends TKCanvas implements QtNative
 
     public function native(): QWidget
     {
+        return $this->native;
+    }
+
+    /** The widget: an engine adds its own child to it and takes it away again. */
+    public function nativeSurface(): QWidget
+    {
+        $this->live();
+
         return $this->native;
     }
 
