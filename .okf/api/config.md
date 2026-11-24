@@ -1,19 +1,28 @@
 ---
 type: Reference
 title: Config
-description: bridge.qt keys read by the driver.
-resource: src/Bridge/QtBridgeDriver.php
+description: config/qt.php keys read by the driver and the toolkit.
+resource: config/qt.php
 tags: [qt, config]
 status: draft
-generated: { by: claude-opus/5.5, at: 2026-10-01T20:06:29Z }
+generated: { by: claude-opus/5.5, at: 2026-11-21T17:39:27Z }
+sources:
+  - id: config
+    resource: config/qt.php
+    title: config/qt.php
+  - id: driver
+    resource: src/QtAdapterDriver.php
+    title: QtAdapterDriver
 ---
 
 # Schema
 
-Read through the container's `config`; absent from Surface's published `config/bridge.php`, defaults in code.
+Merged under `qt` by `VenusianQtServiceProvider` and published as `config/qt.php` (tag `qt-config`). The toolkit is chosen by Topside's `toolkits.default` (`TOOLKIT_DRIVER=qt`).[^config]
 
 | Key | Default | Meaning |
 |---|---|---|
-| `bridge.qt.application_name` | `Venusian` | name macOS shows in the application menu |
-| `app.id` | none: connect throws without it | desktop identity: Wayland app_id, the .desktop file it matches; a packaged build names its `.desktop` file after it |
-| `windows.about.*` | Surface config | About box fields |
+| `qt.application_id` | `env('APP_ID', 'com.venusian.qt')` | `QGuiApplication::setDesktopFileName`; the driver throws without one |
+| `qt.application_name` | `env('APP_NAME', 'Venusian')` | `QCoreApplication::setApplicationName` |
+| `qt.loop_drain_limit` | `64` | `processEvents` calls one pump makes after its wait ([session](/architecture/session.md)) |
+
+[^config]: config/qt.php

@@ -1,0 +1,93 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    # Both suites run on Qt's offscreen platform: nothing is put on screen and no display is needed.
+    # Linux cells run in an image with PHP and Qt preinstalled (php-io-extensions/qt's
+    # .github/ci/Dockerfile), so they download no Qt from a distribution mirror. An empty image
+    # runs the cell on the host (macOS).
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.os == 'ubuntu-24.04' && format('usftechacg/php-qt:{0}-{1}', matrix.php, matrix.ts) || '' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        php: ['8.4', '8.5']
+        ts: [nts, zts]
+
+    name: PHP ${{ matrix.php }} ${{ matrix.ts == 'zts' && 'ZTS' || 'NTS' }} on ${{ matrix.os }}
+
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up PHP (macOS)
+        if: runner.os == 'macOS'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, curl, libxml, mbstring, zip
+          tools: composer
+          coverage: none
+        env:
+          phpts: ${{ matrix.ts == 'zts' && 'ts' || 'nts' }}
+
+      - name: Install Qt (macOS)
+        if: runner.os == 'macOS'
+        run: brew install qt pkgconf vulkan-headers
+
+      # The image has PHP and Qt but no Composer; its unzip comes from Debian's CDN, not the
+      # runner's Ubuntu mirror.
+      - name: Install Composer (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip >/dev/null
+          php -r 'copy("https://getcomposer.org/download/latest-stable/composer.phar", "/usr/local/bin/composer");'
+          chmod +x /usr/local/bin/composer
+          composer --version
+
+      - name: Refuse a PHP of the wrong thread safety
+        env:
+          PHP_ZTS: ${{ matrix.ts == 'zts' && '1' || '0' }}
+        run: |
+          php -r 'if ((int) PHP_ZTS !== (int) getenv("PHP_ZTS")) { fwrite(STDERR, "PHP ".PHP_VERSION." is ".(PHP_ZTS ? "ZTS" : "NTS").", the cell asked for the other".PHP_EOL); exit(1); }
+            echo "PHP ", PHP_VERSION, PHP_ZTS ? " ZTS" : " NTS", PHP_EOL;'
+
+      - name: Build ext-qt
+        run: |
+          # The container runs as root and Homebrew's PHP is the runner user's, so neither needs
+          # sudo; Homebrew's PHP 8.5 has its scan directory compiled in but not created.
+          scan_dir="$(php -r 'echo PHP_CONFIG_FILE_SCAN_DIR;')"
+          mkdir -p "$scan_dir"
+          git clone --depth 1 --branch 0.11.x https://github.com/php-io-extensions/qt.git ../ext-qt
+          (cd ../ext-qt && phpize && ./configure --enable-qt && make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)")
+          echo "extension=$(cd ../ext-qt && pwd)/modules/qt.so" > "$scan_dir/99-qt.ini"
+          php --ri qt | head -3
+
+      - name: Checkout venusian/topside
+        run: git clone --depth 1 --branch 0.11.x https://github.com/VenusianPHP/topside.git ../topside
+
+      - name: Resolve venusian/topside from the checkout
+        run: |
+          composer config repositories.topside '{"type": "path", "url": "../topside", "options": {"symlink": false}}'
+
+      - name: Install Composer dependencies
+        run: composer update --prefer-stable --no-interaction --no-progress
+
+      # One QApplication per process, so each suite runs in a process of its own.
+      - name: Execute the Windowless suite
+        run: php -d memory_limit=128M vendor/bin/pest --testsuite=Windowless
+
+      - name: Execute the Integration suite
+        if: success() || failure()
+        run: php -d memory_limit=128M vendor/bin/pest --testsuite=Integration

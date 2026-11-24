@@ -2,9 +2,9 @@
 type: Module
 title: Primitives
 description: Qt concretes of Surface's TK primitives - factory, containers over Qt layouts, style-sheet styling, event-filter resize mail, leaf signals to view mail, table and video.
-resource: src/Primitives/
+resource: deprecated2/Primitives/
 tags: [qt, primitives, widgets, layout]
-status: draft
+status: deprecated
 generated: { by: claude-opus/5.5, at: 2026-11-11T11:00:00Z }
 sources:
   - id: trait
@@ -23,6 +23,8 @@ sources:
     resource: src/Primitives/QtTable.php
     title: QtTable
 ---
+
+> **Deprecated (2026-11-21):** Describes the bridge-era Qt primitives, now under `deprecated2/Primitives/`. The adapter has no primitives on Topside's new TK classes yet.
 
 # Overview
 
@@ -110,3 +112,7 @@ Playing = `PLAYING` state **and** `BUFFERING`/`BUFFERED` media, recomputed on ev
 [^containers]: QtColumn, QtRow, QtGrid, QtFixed, QtScrollView
 [^video]: QtVideo
 [^table]: QtTable
+
+# Native handle
+
+`QtCanvas` implements `NativeStage` on every platform. `nativeHandle()` is kind `qt.widget` and the canvas's own `QWidget`, the object `native()` returns. Asking adds nothing to the canvas. A presenter adds its own child over the label (for Vulkan, a container holding a `QWindow` whose surface Qt makes) and takes it away again.

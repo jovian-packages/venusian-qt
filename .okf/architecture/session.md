@@ -1,38 +1,49 @@
 ---
 type: Module
 title: Session
-description: QApplication session - construct once, stay up with no windows, budgeted dispatcher pump, deferred deletes, one-shot notifier wake.
-resource: src/Bridge/QtSession.php
-tags: [qt, bridge, linux, macos]
+description: QApplication built once, kept up with no windows, a budgeted dispatcher pump with deferred deletes, and a one-shot notifier wake.
+resource: src/Qt.php
+tags: [qt, session, linux, macos]
 status: draft
-generated: { by: claude-opus/5.5, at: 2026-10-01T20:06:29Z }
+generated: { by: claude-opus/5.5, at: 2026-11-21T17:39:27Z }
 sources:
+  - id: qt
+    resource: src/Qt.php
+    title: Qt (the Toolkit)
   - id: session
-    resource: src/Bridge/QtSession.php
+    resource: src/QtSession.php
     title: QtSession
+  - id: driver
+    resource: src/QtAdapterDriver.php
+    title: QtAdapterDriver
 ---
 
 # Overview
 
-`QtSession extends Surface\Bridge\BridgedToolkitSession`; built by `QtBridgeDriver::connect()` from [config](/api/config.md).[^session]
+Three classes, on Topside's toolkit layer:
 
-| Hook | Qt calls |
+| Class | Extends / implements | Job |
+|---|---|---|
+| `QtAdapterDriver` | `Surface\Toolkits\Drivers\ToolkitAdapterDriver` | refuses without ext-qt; makes the session from [config](/api/config.md); declares `QtWindow` as its window class |
+| `QtSession` | `Surface\Toolkits\ToolkitSession` | builds the `Qt` toolkit once, with the application and desktop file names and the budget timer |
+| `Qt` | `Surface\Contracts\Toolkits\Toolkit` | the Qt calls below |
+
+The window list and the after-pump settle are Topside's (`ToolkitSession`).[^session]
+
+# Calls
+
+| When | Qt calls |
 |---|---|
-| initialize (once) | `new QApplication([argv0])`, `setApplicationName`, `setDesktopFileName`; single-shot `PRECISE_TIMER` for budgets |
-| connect | `setQuitOnLastWindowClosed(false)` |
-| disconnect | `setQuitOnLastWindowClosed(true)` (Qt default) |
-| `pump($ns)` | budget > 0: start the timer (ceil ms) + one `processEvents(WAIT_FOR_MORE_EVENTS)` on the dispatcher, stop the timer; then up to `DRAIN_LIMIT` (64) `processEvents(ALL_EVENTS)` while they dispatch; then `sendPostedEvents(null, DEFERRED_DELETE)`; on macOS, then `QtCanvas::sweepSdlWindows()` |
+| built (once per process) | `new QApplication([argv0])`, `QCoreApplication::setApplicationName`, `QGuiApplication::setDesktopFileName`, a single-shot `PRECISE_TIMER` for budgets |
+| `connect()` | `setQuitOnLastWindowClosed(false)` |
+| `disconnect()` | `setQuitOnLastWindowClosed(true)` (Qt's default) |
+| `pump($ns)` | budget > 0: start the timer (ceil ms), one `processEvents(WAIT_FOR_MORE_EVENTS)` on the dispatcher, stop the timer. Then up to `qt.loop_drain_limit` (64) `processEvents(ALL_EVENTS)` while they dispatch. Then `sendPostedEvents(null, DEFERRED_DELETE)`: Qt runs a `deleteLater()` posted outside an event handler only from `exec()`, which a pumped application never enters |
 
-Deferred deletes: Qt runs a `deleteLater()` posted outside any event handler only from `exec()`; a pumped app never enters it, so the pump asks for them at its own level. Covers replaced menu bars, released notifiers, app `deleteLater()` calls. Delete-on-close windows go through the same path.
-
-Qt activates itself on `activateWindow()` on macOS; no ext-appkit needed.
+[^qt]
 
 # Wake
 
-`QSocketNotifier(fd, READ)`; `activated` disables it, the next `pump()` re-enables (one-shot). Release: disable + `deleteLater()`.
+`wakeDescriptor($fd)` makes a `QSocketNotifier($fd, READ)` whose `activated` disables it; each `pump()` enables it again, so a descriptor the loop has not read yet cannot keep a drain busy.[^qt]
 
-# About
-
-`showAbout(about, ?parent)`: one non-modal `QMessageBox` while open (again → update + raise), `DELETE_ON_CLOSE`, `destroyed` drops it. Title `About <name>`, text `<name> <version>`, informative text = copyright; name falls back to `applicationName()`. `aboutBox()` = the open one.
-
+[^qt]: Qt (the Toolkit)
 [^session]: QtSession

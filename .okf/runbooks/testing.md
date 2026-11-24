@@ -14,7 +14,7 @@ sources:
 
 # Overview
 
-Suite drives the real toolkit: windows appear on screen. One driver per process (one application per process), built in `tests/Pest.php` with a `ControlPanel` container holding `config`, `toolkit-bridge`, `toolkit-windows`; helpers `driver()`, `session()`, `takeMail()` (empties the outbox), `pumpFor($seconds)` (pumps through `ToolkitPump`, so latest mail is flushed after each pump as the loop does; a raw `session()->pump()` leaves it pending).[^pest]
+`QT_QPA_PLATFORM=offscreen vendor/bin/pest --testsuite=Windowless` puts nothing on screen: the menu bar on real `QMenuBar`s and `QAction`s, through topside's `MenuManager`. The offscreen platform has no macOS system bar and no real key press; those are checked by running an app. The Integration suite drives the real toolkit: windows appear on screen (it also passes offscreen). One driver per process (one application per process), built in `tests/Pest.php` with a `ControlPanel` container holding `config`, `toolkit-bridge`, `toolkit-windows`; helpers `driver()`, `session()`, `takeMail()` (empties the outbox), `pumpFor($seconds)` (pumps through `ToolkitPump`, so latest mail is flushed after each pump as the loop does; a raw `session()->pump()` leaves it pending).[^pest]
 
 Covers: session lifecycle, budgeted wait, loop join (kqueue/epoll fd ends the toolkit sleep), open/close/focus mail, menu build, item/toggle/quit mail, About, default bar, profile swap; every primitive (`tests/Primitives/`): containers, leaves, resize mail, table, video (`tests/fixtures/clip.mp4`, 1.2 s silent H.264), the no-backend refusal (child process with `QT_MEDIA_BACKEND=none`; Linux only, macOS Qt falls back to its one backend).
 
