@@ -481,7 +481,7 @@ it('gives a window its own QMenuBar and the parentless one to no window', functi
 
     expect(array_map(fn (object $m): array => [$m->name(), $m->window], $mail))
         ->toBe([['menu.clicked.two.go', 'two'], ['menu.clicked.default.open', null]]);
-});
+})->skip(! MAC, 'Topside keeps a bar for no window on macOS only.');
 
 it('drops every native when its window closes', function (): void {
     $menus = quietMenus();
