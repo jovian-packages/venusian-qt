@@ -2,9 +2,9 @@
 type: Module
 title: Windows and menus
 description: QMainWindow per name, event-filter mail, QMenuBar with roles, parentless default bar on macOS, About box.
-resource: src/Windows/
+resource: deprecated2/QtWindow.php
 tags: [qt, windows, menus]
-status: draft
+status: deprecated
 generated: { by: claude-opus/5.5, at: 2026-10-22T13:10:00Z }
 sources:
   - id: window
@@ -17,6 +17,8 @@ sources:
     resource: src/Bridge/QtBridgeDriver.php
     title: QtBridgeDriver
 ---
+
+> **Deprecated (2026-11-21):** Describes the bridge-era `QtWindow` and `QtMenuBar`, now under `deprecated/` and `deprecated2/`. The current window is [Window](/architecture/window.md); menus, focus, keys and child-window rules are not ported to it yet.
 
 # Window
 

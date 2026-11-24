@@ -1,5 +1,35 @@
 # Log
 
+## 2026-11-24
+
+* **Version**: 0.11.2 in composer.json, with ext-qt `^0.11.2`; venusian/framework and venusian/topside required at `^0.11.0`, and the `../../venusian/*` path repository dropped.
+* **CI**: `.github/workflows/tests.yml` runs the Windowless and Integration suites, each in its own process, offscreen, on ubuntu-24.04 and macos-15, PHP 8.4 and 8.5, NTS and ZTS. ext-qt is built from its `0.11.x` branch and venusian/topside resolved from its `0.11.x` checkout. Linux cells run in `usftechacg/php-qt:<php>-<ts>` (PHP and Qt preinstalled); macOS installs Homebrew's `qt`.
+* **README**: house style (badges, about, learning, AI note, contributing, conduct, security, license); the reference lives in the docs guides.
+
+## 2026-11-22
+
+* **Creation**: [Menu bar](/architecture/menu-bar.md): `QtMenuBar` on topside's `TKMenuBar`, with Qt's own menu API only; needs ext-qt `e3d2a60` (`QWidget::insertAction`, `removeAction`). [Window](/architecture/window.md) reports activation and deactivation to topside's menus; [Testing](/runbooks/testing.md) gains the Windowless suite. 27 windowless and 20 integration checks pass offscreen on 8.4 NTS and ZTS.
+* **Update**: [UI primitives](/architecture/ui-primitives.md): list, collection and tree on Topside's TK classes, in the primitive map.
+* **Update**: [UI primitives](/architecture/ui-primitives.md): table and text area on Topside's TK classes, in the primitive map.
+* **Update**: [UI primitives](/architecture/ui-primitives.md): scroll view, tab view, split view and grid on Topside's TK classes, in the primitive map.
+* **Update**: [UI primitives](/architecture/ui-primitives.md): separator, progress bar, spinner, slider, toggle button, segmented control and image on Topside's TK classes, in the primitive map.
+
+## 2026-11-21
+
+* **Update**: [UI primitives](/architecture/ui-primitives.md): text input, combo box, date picker and link on Topside's TK classes; text styling moved from the label to `QtText`. 30 real-window checks pass.
+* **Update**: [UI primitives](/architecture/ui-primitives.md): check box, switch and dropdown on Topside's `TKCheckbox`, `TKToggle`, `TKDropdown`, in the primitive map. 11 real-window checks pass.
+* **Creation**: [UI primitives](/architecture/ui-primitives.md): column, row, fixed, label and button on Topside's TK classes; the driver declares the primitive map and the window mounts the content column. 35 real-window harness checks pass. Commit f743cc7, 7dd0367.
+* **Update**: [Session](/architecture/session.md) rewritten for the Surface toolkit layer: `Qt` (the Toolkit), `QtSession`, `QtAdapterDriver` replace the bridge session and driver; the window list and after-pump settle are Topside's. Commit `c25d167`.
+* **Creation**: [Window](/architecture/window.md): `QtWindow` on Topside's `ToolkitWindow` lifecycle (`allowsUserClose()`, `closeNative()`, `releaseNative()`, `resized()`); gains `isOpen()` and `size()`. Checked in a scratch topside-dev: open, resize from code, confirm-close and `close()` post the right mail.
+* **Update**: [Config](/api/config.md): keys are now `qt.application_id`, `qt.application_name`, `qt.loop_drain_limit`; the provider is on `ToolkitAdapterServiceProvider` and builds no driver until `toolkits.default` asks for `qt`.
+* **Deprecation**: [Windows and menus](/architecture/windows-and-menus.md) and [Primitives](/architecture/primitives.md) describe code now under `deprecated/` and `deprecated2/`; kept for history.
+* Not reviewed: [Testing](/runbooks/testing.md) still describes the bridge-era helpers; `tests/Pest.php` builds the new driver, and the suite was not run.
+
+## 2026-11-19
+
+* `QtCanvas` offers kind `qt.widget`, its own `QWidget`, on every platform; the embedded `QWindow`, the macOS-only check and `appkit.view` are gone. Asking for the handle adds nothing; checked in a hidden window, and the check fails when asking adds a child. [primitives](architecture/primitives.md)
+* On macOS `QtCanvas` offers a native handle, kind `appkit.view`, the `NSView` of a `QWindow` embedded in the canvas. Checked in a hidden window: the address is that view. No kind on Linux until a presenter has worked on what `winId()` returns there. [primitives](architecture/primitives.md)
+
 ## 2026-11-10
 
 * [Primitives](architecture/primitives.md): web view (`QtWebView`, `TKWebView`) over `QWebEngineView`. `tests/Primitives/WebViewTest.php`: 2 passed.
