@@ -49,6 +49,8 @@ use Surface\Contracts\Toolkits\UI\TKSplitView;
 use Jovian\Toolkits\Qt\UI\QtSplitView;
 use Surface\Contracts\Toolkits\UI\TKGrid;
 use Jovian\Toolkits\Qt\UI\QtGrid;
+use Surface\Contracts\Toolkits\UI\TKOverlay;
+use Jovian\Toolkits\Qt\UI\QtOverlay;
 use Surface\Contracts\Toolkits\UI\TKSeparator;
 use Jovian\Toolkits\Qt\UI\QtSeparator;
 use Surface\Contracts\Toolkits\UI\TKProgressBar;
@@ -94,6 +96,7 @@ class QtAdapterDriver extends ToolkitAdapterDriver
         TKTabView::class => QtTabView::class,
         TKSplitView::class => QtSplitView::class,
         TKGrid::class => QtGrid::class,
+        TKOverlay::class => QtOverlay::class,
         TKTable::class => QtTable::class,
         TKListView::class => QtListView::class,
         TKCollectionView::class => QtCollectionView::class,

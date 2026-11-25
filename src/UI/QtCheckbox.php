@@ -8,6 +8,7 @@ use WeakReference;
 use QSizePolicy\Policy;
 use Surface\Toolkits\UI\TKCheckbox;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
+use Jovian\Toolkits\Qt\UI\Concerns\QtSheetMargin;
 
 /**
  * A QCheckBox. Its toggled(bool) signal tells topside the new state; Qt also emits it for
@@ -16,6 +17,7 @@ use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
 class QtCheckbox extends TKCheckbox
 {
     use QtNative;
+    use QtSheetMargin;
 
     protected function bootstrapNative(): void
     {

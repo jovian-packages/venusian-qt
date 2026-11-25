@@ -21,9 +21,16 @@ class QtScrollView extends TKScrollView
         $area = new QScrollArea();
         $area->setWidgetResizable(true);
         $this->adoptNative($area);
-        // Its frame is a panel's; the others draw none.
-        $this->declare('border', 'none');
+        $this->restyleBox();
         $this->applyScrollbars($this->scrollsAcross(), $this->scrollsDown());
+    }
+
+    /**
+     * Its frame is a panel's; the others draw none. A border set takes its place.
+     */
+    protected function ownBorder(): ?string
+    {
+        return 'none';
     }
 
     protected function attachNative(TKPrimitive $child): void

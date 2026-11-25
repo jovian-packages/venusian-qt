@@ -8,6 +8,7 @@ use Surface\Toolkits\UI\TKLabel;
 use Surface\Contracts\Toolkits\Styling\TextAlignment;
 use Jovian\Toolkits\Qt\UI\Concerns\QtText;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
+use Jovian\Toolkits\Qt\UI\Concerns\QtSheetMargin;
 
 /**
  * A QLabel showing plain text (Qt's default, AutoText, would render a string that looks like
@@ -16,6 +17,7 @@ use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
 class QtLabel extends TKLabel
 {
     use QtNative;
+    use QtSheetMargin;
     use QtText;
 
     protected function bootstrapNative(): void

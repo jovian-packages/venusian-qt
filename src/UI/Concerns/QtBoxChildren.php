@@ -5,10 +5,11 @@ namespace Jovian\Toolkits\Qt\UI\Concerns;
 use QWidget;
 use QBoxLayout;
 use Surface\Toolkits\UI\TKPrimitive;
+use Surface\Contracts\Toolkits\UI\Insets;
 
 /**
  * What a Qt column and row share: a QWidget with a box layout. Padding is the layout's
- * margins, inside the widget's own background. The layout ends with a stretch, so children
+ * margins, each side its own, inside the widget's own background. The layout ends with a stretch, so children
  * keep their size at the start; it gives way (stretch 0) once a child fills along the axis.
  * A child's fill and alignment live in this layout (its stretch and alignment).
  */
@@ -31,7 +32,7 @@ trait QtBoxChildren
         $widget = new QWidget();
         $this->layout = $this->newLayout($widget);
         $this->layout->setSpacing($this->spacing());
-        $this->layout->setContentsMargins($this->padding, $this->padding, $this->padding, $this->padding);
+        $this->applyPadding($this->padding());
         $this->layout->addStretch(1);
         $this->adoptNative($widget);
     }
@@ -63,6 +64,11 @@ trait QtBoxChildren
     protected function applySpacing(int $spacing): void
     {
         $this->layout->setSpacing($spacing);
+    }
+
+    protected function applyPadding(Insets $padding): void
+    {
+        $this->layout->setContentsMargins($padding->left, $padding->top, $padding->right, $padding->bottom);
     }
 
     protected function childLayoutChanged(TKPrimitive $child): void
