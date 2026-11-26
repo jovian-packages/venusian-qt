@@ -8,6 +8,7 @@ use QPixmap;
 use QPushButton;
 use WeakReference;
 use QSizePolicy\Policy;
+use Surface\Contracts\Toolkits\UI\Insets;
 use Surface\NutsAndBolts\Color;
 use Surface\Toolkits\UI\TKButton;
 use Surface\Contracts\Toolkits\UI\ButtonRole;
@@ -31,6 +32,9 @@ class QtButton extends TKButton
     use QtText;
 
     private ?Color $text_color = null;
+
+    /** The padding set: null for the one this adapter gives a framed button. */
+    private ?Insets $padding = null;
 
     /** The icon last given to Qt: null for none. */
     private ?QIcon $shown_icon = null;
@@ -63,7 +67,8 @@ class QtButton extends TKButton
 
     protected function applyStyle(ButtonStyle $style): void
     {
-        $this->buttonNative()->setFlat($style !== ButtonStyle::DEFAULT);
+        // Qt has no help button: HELP is a framed button, its label shown.
+        $this->buttonNative()->setFlat(! $style->framed());
         $this->restyleBox();
     }
 
@@ -83,6 +88,15 @@ class QtButton extends TKButton
             TextAlignment::CENTER => 'center',
             TextAlignment::RIGHT => 'right',
         });
+    }
+
+    /**
+     * A style sheet padding per side, in px. None gives back the adapter's own.
+     */
+    protected function applyPadding(Insets $padding): void
+    {
+        $this->padding = $padding->isZero() ? null : $padding;
+        $this->restyleBox();
     }
 
     /**
@@ -119,9 +133,11 @@ class QtButton extends TKButton
     {
         $this->restyleSheetBox();
 
-        $framed = $this->style() === ButtonStyle::DEFAULT && (! is_null($this->sheetBackground()) || ! is_null($this->borderLine()));
+        $framed = $this->style()->framed() && (! is_null($this->sheetBackground()) || ! is_null($this->borderLine()));
         $this->declareAll([
-            'padding' => $framed ? '4px 12px' : null,
+            'padding' => is_null($this->padding)
+                ? ($framed ? '4px 12px' : null)
+                : "{$this->padding->top}px {$this->padding->right}px {$this->padding->bottom}px {$this->padding->left}px",
             'color' => $this->text_color?->toCss() ?? ($this->style() === ButtonStyle::LINK ? 'palette(link)' : null),
         ]);
     }
@@ -132,7 +148,7 @@ class QtButton extends TKButton
      */
     protected function ownBorder(): ?string
     {
-        if ($this->style() !== ButtonStyle::DEFAULT) {
+        if (! $this->style()->framed()) {
             return 'none';
         }
 

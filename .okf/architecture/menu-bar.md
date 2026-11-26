@@ -5,7 +5,7 @@ description: One QMenuBar per window and a parentless one for none focused - how
 resource: src/Menus/
 tags: [qt, menus, macos, linux]
 status: draft
-generated: { by: claude-fable/5.2, at: 2026-11-22T23:00:00Z }
+generated: { by: claude-fable/5.2, at: 2026-11-26T05:30:00Z }
 sources:
   - id: bar
     resource: src/Menus/QtMenuBar.php
@@ -34,7 +34,7 @@ Only Qt's own menu API is used. Nothing reads or writes the macOS bar beside Qt.
 | A choice | one checkable action per option, in no `QActionGroup`: topside owns the mark |
 | A toggle or choice chosen | Qt has flipped the action already; the mark is put back and `activated()` reports, and topside sets it through `change()` |
 | Label | `&` is doubled: Qt reads one as a mnemonic |
-| Edit kinds | the focused widget's own slot (`QLineEdit`, `QPlainTextEdit`); another widget takes nothing |
+| Edit kinds | the focused widget's own slot (`QLineEdit`, `QPlainTextEdit`); another widget takes nothing. Paste and Match Style is `paste()`: those widgets hold plain text only |
 | Close Window | the window's `close()`, so its close event and confirm path run |
 | Minimize, full screen | `supports()` is false: ext-qt binds no call for either. Topside shows them disabled and logs once |
 | About panel | `QtSession::showAbout()`: Qt has no About panel, so a `QMessageBox`, not modal, one at a time |

@@ -65,6 +65,8 @@ use Surface\Contracts\Toolkits\UI\TKSegmentedControl;
 use Jovian\Toolkits\Qt\UI\QtSegmentedControl;
 use Surface\Contracts\Toolkits\UI\TKImage;
 use Jovian\Toolkits\Qt\UI\QtImage;
+use Surface\Contracts\Toolkits\UI\TKWebView;
+use Jovian\Toolkits\Qt\UI\QtWebView;
 
 class QtAdapterDriver extends ToolkitAdapterDriver
 {
@@ -102,6 +104,7 @@ class QtAdapterDriver extends ToolkitAdapterDriver
         TKCollectionView::class => QtCollectionView::class,
         TKTree::class => QtTree::class,
         TKTextArea::class => QtTextArea::class,
+        TKWebView::class => QtWebView::class,
     ];
 
     public function __construct(

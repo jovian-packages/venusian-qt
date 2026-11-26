@@ -11,6 +11,7 @@ use QEventLoop\ProcessEventsFlag;
 use QGuiApplication;
 use QObject;
 use QSocketNotifier;
+use Qt\ApplicationAttribute;
 use Qt\TimerType;
 use QTimer;
 use ReflectionException;
@@ -39,6 +40,14 @@ class Qt implements Toolkit
         protected ?QApplication $application = null
     ) {
         $argc = 1;
+        // QtWebEngine shares one GL context across the windows' web views: Qt wants this before the QApplication exists.
+        QCoreApplication::setAttribute(ApplicationAttribute::SHARE_OPEN_GL_CONTEXTS);
+        // A web view is a QQuickWidget inside: the first one in a shown window makes Qt recreate the window with a
+        // Metal/GL surface, and when that happens inside an input event (a click that opens a page) the new window
+        // never gets its first frame. Qt's own switch makes every widget window flush through QRhi from the start.
+        if (getenv('QT_WIDGETS_RHI') === false) {
+            putenv('QT_WIDGETS_RHI=1');
+        }
         $this->application ??= new QApplication($argc, [$_SERVER['argv'][0] ?? PHP_BINARY]);
 
         $this->drain_limit = config('qt.loop_drain_limit', 64);

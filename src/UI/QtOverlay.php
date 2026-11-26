@@ -4,6 +4,7 @@ namespace Jovian\Toolkits\Qt\UI;
 
 use QWidget;
 use QGridLayout;
+use QSpacerItem;
 use QSizePolicy\Policy;
 use Surface\Toolkits\UI\TKOverlay;
 use Surface\Toolkits\UI\TKPrimitive;
@@ -25,6 +26,9 @@ class QtOverlay extends TKOverlay
 
     private ?QGridLayout $stack = null;
 
+    /** Its preferred size while it fills up to a maximum (holdCeiling()). */
+    private ?QSpacerItem $ceiling = null;
+
     /**
      * Whether $child gives this overlay its natural size.
      */
@@ -38,6 +42,8 @@ class QtOverlay extends TKOverlay
         $widget = new QWidget();
         $this->stack = new QGridLayout($widget);
         $this->stack->setSpacing(0);
+        $this->ceiling = new QSpacerItem(0, 0, Policy::MINIMUM, Policy::MINIMUM);
+        $this->stack->addItem($this->ceiling, 0, 0);
         $this->adoptNative($widget);
         $this->applyPadding($this->padding());
     }
@@ -62,6 +68,25 @@ class QtOverlay extends TKOverlay
     protected function reorderNative(TKPrimitive $child, int $index): void
     {
         $this->restack();
+    }
+
+    /**
+     * Filling with a maximum, the spacer in the cell prefers that maximum, so the layout's
+     * size hint is, and a parent that centres this overlay gives it its room up to the
+     * maximum. The spacer shrinks to nothing (PREFERRED); 0 × 0 MINIMUM is no spacer at all.
+     */
+    protected function holdCeiling(): void
+    {
+        if (is_null($this->ceiling)) {
+            return;
+        }
+
+        [$maxWidth, $maxHeight] = $this->maximumSize();
+        [$fillsAcross, $fillsDown] = $this->fills();
+        $width = $fillsAcross && $maxWidth > 0 ? $maxWidth : 0;
+        $height = $fillsDown && $maxHeight > 0 ? $maxHeight : 0;
+        $this->ceiling->changeSize($width, $height, $width > 0 ? Policy::PREFERRED : Policy::MINIMUM, $height > 0 ? Policy::PREFERRED : Policy::MINIMUM);
+        $this->stack->invalidate();
     }
 
     protected function applyPadding(Insets $padding): void

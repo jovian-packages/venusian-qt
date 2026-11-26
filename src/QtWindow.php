@@ -5,7 +5,12 @@ namespace Jovian\Toolkits\Qt;
 use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
+use QCheckBox;
+use QDesktopServices;
+use QUrl;
 use QMainWindow;
+use QMessageBox;
+use QPushButton;
 use QObject;
 use Qt\WidgetAttribute;
 use Qt\WindowModality;
@@ -16,6 +21,8 @@ use RuntimeException;
 use Surface\Contracts\Toolkits\Mail\Windows\WindowFocused;
 use Surface\Contracts\Toolkits\Mail\Windows\WindowScaleChanged;
 use Surface\Toolkits\ToolkitWindow;
+use Surface\Contracts\Toolkits\Dialogs\Alert;
+use Surface\Contracts\Toolkits\Dialogs\AlertStyle;
 use Surface\Contracts\Toolkits\UI\TKColumn as ColumnContract;
 use WeakReference;
 
@@ -67,6 +74,16 @@ class QtWindow extends ToolkitWindow
      * Sees the central widget's Resize events: the content area's size.
      */
     protected ?QEventFilter $resize_filter = null;
+
+    /** The message box open on the window, until it is answered. */
+    protected ?QMessageBox $alert = null;
+
+    /**
+     * Its buttons, in the alert's order: the box gives back the one clicked, not its index.
+     *
+     * @var list<QPushButton>
+     */
+    protected array $alert_buttons = [];
 
 
     public function __construct(
@@ -253,6 +270,78 @@ class QtWindow extends ToolkitWindow
         $this->closed();
 
         return false;
+    }
+
+    /**
+     * A QMessageBox, modal to the window, opened without waiting. Its default and escape
+     * buttons take Return and Esc. Qt shows it with the platform's own alert where it can:
+     * on macOS an NSAlert sheet, which, as AppKit does, gives Esc to no button when the
+     * default is also the escape button. The title shows where the box has a title bar.
+     */
+    protected function showAlert(Alert $alert): void
+    {
+        $box = new QMessageBox($this->live());
+        // As written, whichever box Qt shows: its own reads text that looks like HTML as HTML.
+        $box->setTextFormat(\Qt\TextFormat::PLAIN_TEXT);
+        $box->setText($alert->message);
+        $box->setInformativeText($alert->detail ?? '');
+        if (! is_null($alert->style)) {
+            $box->setIcon(match ($alert->style) {
+                AlertStyle::Info => QMessageBox\Icon::INFORMATION,
+                AlertStyle::Warning => QMessageBox\Icon::WARNING,
+                AlertStyle::Critical => QMessageBox\Icon::CRITICAL,
+            });
+        }
+        if (! is_null($alert->suppression)) {
+            // The box owns the check box; its label reads & as a mnemonic, as a button's does.
+            $box->setCheckBox(new QCheckBox(self::buttonLabel($alert->suppression)));
+        }
+        if (! is_null($alert->title)) {
+            $box->setWindowTitle($alert->title);
+        }
+        /** @var list<QPushButton> $buttons */
+        $buttons = array_map(static fn (string $label): QPushButton => $box->addButton(self::buttonLabel($label), QMessageBox\ButtonRole::ACTION_ROLE), $alert->buttons);
+        $box->setDefaultButton($buttons[$alert->default]);
+        // Esc and the box's own close click the escape button.
+        $box->setEscapeButton($buttons[$alert->cancel]);
+        $box->setWindowModality(WindowModality::WINDOW_MODAL);
+
+        $self = WeakReference::create($this);
+        $cancel = $alert->cancel;
+        QObject::connect($box, 'finished(int)', static function () use ($self, $box, $cancel): void {
+            $window = $self->get();
+            if (is_null($window) || $window->alert !== $box) {
+                return;
+            }
+            $index = array_search($box->clickedButton(), $window->alert_buttons, true);
+            $window->alert = null;
+            $window->alert_buttons = [];
+            $window->alertAnswered($index === false ? $cancel : $index, $box->checkBox()?->isChecked() ?? false);
+        });
+        $this->alert = $box;
+        $this->alert_buttons = $buttons;
+        $box->open();
+    }
+
+    /** QDesktopServices opens it with the user's browser. */
+    protected function openUrl(string $url): void
+    {
+        QDesktopServices::openUrl(new QUrl($url));
+    }
+
+    /** The box goes with the window; its finished() then finds it gone. */
+    protected function closeAlert(): void
+    {
+        $box = $this->alert;
+        $this->alert = null;
+        $this->alert_buttons = [];
+        $box?->close();
+    }
+
+    /** A button label as written: Qt reads one & as a mnemonic marker, two as an &. */
+    private static function buttonLabel(string $label): string
+    {
+        return str_replace('&', '&&', $label);
     }
 
     /**

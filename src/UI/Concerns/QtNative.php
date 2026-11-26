@@ -10,6 +10,7 @@ use QObject;
 use QCursor;
 use QMouseEvent;
 use QEventFilter;
+use QTimer;
 use QEasingCurve;
 use QCoreApplication;
 use QPropertyAnimation;
@@ -26,6 +27,8 @@ use Surface\NutsAndBolts\Color;
 use Surface\Contracts\Toolkits\UI\Align;
 use Surface\Contracts\Toolkits\UI\Cursor;
 use Surface\Contracts\Toolkits\UI\Corners;
+use Jovian\Toolkits\Qt\UI\QtRow;
+use Jovian\Toolkits\Qt\UI\QtColumn;
 use Jovian\Toolkits\Qt\UI\QtOverlay;
 use Surface\Contracts\Toolkits\UI\TKTransition;
 
@@ -46,6 +49,9 @@ trait QtNative
 {
     /** Qt::LeftButton. */
     private const int LEFT_BUTTON = 1;
+
+    /** QWIDGETSIZE_MAX: no maximum. */
+    private const int NO_MAXIMUM = 16777215;
 
     protected ?QWidget $native = null;
 
@@ -71,6 +77,9 @@ trait QtNative
 
     /** Where the widget rests while a slide runs, to go back to when it stops. */
     private ?QPoint $rest = null;
+
+    /** Which appearing move a deferred start belongs to; a stop or a newer change moves it on. */
+    private int $move_token = 0;
 
     /**
      * The widget, for the container this primitive is in.
@@ -365,6 +374,7 @@ trait QtNative
     protected function applyFill(bool $horizontal, bool $vertical): void
     {
         $this->applySizePolicy();
+        $this->holdCeiling();
     }
 
     /**
@@ -383,6 +393,23 @@ trait QtNative
     }
 
     /**
+     * Qt's maximum width and height; 0 is none (QWIDGETSIZE_MAX).
+     */
+    protected function applyMaxSize(int $width, int $height): void
+    {
+        $this->native->setMaximumWidth($width > 0 ? $width : self::NO_MAXIMUM);
+        $this->native->setMaximumHeight($height > 0 ? $height : self::NO_MAXIMUM);
+        $this->holdCeiling();
+    }
+
+    /**
+     * A layout gives an aligned widget no more than its size hint (QWidgetItem::setGeometry),
+     * so a container that fills up to a maximum and is centred makes its own layout's
+     * preferred size that maximum (holdCeiling() in a column, row or overlay). Nothing here.
+     */
+    protected function holdCeiling(): void {}
+
+    /**
      * In an overlay that it does not size (it fills both ways), Qt ignores its size hint, so
      * it takes the overlay's size and never gives the overlay one.
      */
@@ -396,7 +423,33 @@ trait QtNative
 
             return;
         }
-        $this->native->setSizePolicy($horizontal ? Policy::EXPANDING : $naturalH, $vertical ? Policy::EXPANDING : $naturalV);
+
+        $policyH = $horizontal ? Policy::EXPANDING : $naturalH;
+        $policyV = $vertical ? Policy::EXPANDING : $naturalV;
+
+        // In a homogeneous row (column), Qt ignores its width (height) hint: the layout shares
+        // the room by the equal stretch factors alone.
+        $parent = $this->parent();
+        if ($parent instanceof QtRow && $parent->isHomogeneous()) {
+            $policyH = Policy::IGNORED;
+        } elseif ($parent instanceof QtColumn && $parent->isHomogeneous()) {
+            $policyV = Policy::IGNORED;
+        }
+
+        $this->native->setSizePolicy($policyH, $policyV);
+    }
+
+    /**
+     * Set the size policy again from what this primitive and its container hold: for a
+     * container whose rules for its children changed (a column or row turned homogeneous).
+     *
+     * @internal
+     */
+    public function refreshSizePolicy(): void
+    {
+        if (! is_null($this->native)) {
+            $this->applySizePolicy();
+        }
     }
 
     /**
@@ -461,8 +514,29 @@ trait QtNative
             QCoreApplication::sendPostedEvents($this->native, EventType::META_CALL->value);
         }
 
+        if ($transition->moves() && ! $visible) {
+            $this->playMove(false, $transition, $duration);
+
+            return;
+        }
+
         if ($transition->moves()) {
-            $this->playMove($visible, $transition, $duration);
+            // The container hears of the change only after this returns, and the layout pass
+            // it asks for puts the widget back where it rests, so a move started here was
+            // painted in place before its first frame (measured: three paints at rest over
+            // 47 ms). It is drawn at opacity 0 until the next turn of the loop, when every
+            // pending layout is applied, and the move then starts from the edge.
+            $this->opacityEffect()->setOpacity(0.0);
+            $token = ++$this->move_token;
+            $self = WeakReference::create($this);
+            QTimer::singleShot(0, static function () use ($self, $token, $transition, $duration): void {
+                $primitive = $self->get();
+                if (is_null($primitive) || is_null($primitive->native) || $primitive->move_token !== $token) {
+                    return;
+                }
+                QCoreApplication::sendPostedEvents(null, EventType::LAYOUT_REQUEST->value);
+                $primitive->playMove(true, $transition, $duration);
+            });
 
             return;
         }
@@ -528,6 +602,16 @@ trait QtNative
         $this->animations[] = $move;
 
         $self = WeakReference::create($this);
+        if ($visible) {
+            // Drawn again once the animation has put it at the edge: a layout pass can still
+            // land between this call and the first frame and put it back where it rests.
+            QObject::connect($move, 'valueChanged(QVariant)', static function () use ($self): void {
+                $primitive = $self->get();
+                if (! is_null($primitive) && ! is_null($primitive->native) && $primitive->animations !== []) {
+                    $primitive->applyOpacity($primitive->opacity());
+                }
+            });
+        }
         QObject::connect($move, 'finished()', static function () use ($self, $visible): void {
             $primitive = $self->get();
             if (is_null($primitive) || is_null($primitive->native)) {
@@ -548,6 +632,7 @@ trait QtNative
      */
     private function stopTransition(): void
     {
+        $this->move_token++;
         foreach ($this->animations as $animation) {
             $animation->stop();
         }
