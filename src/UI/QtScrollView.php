@@ -2,7 +2,10 @@
 
 namespace Jovian\Toolkits\Qt\UI;
 
+use QObject;
 use QScrollArea;
+use WeakReference;
+use Surface\Contracts\Toolkits\Styling\ScrollPosition;
 use QSizePolicy\Policy;
 use Qt\ScrollBarPolicy;
 use Surface\Toolkits\UI\TKPrimitive;
@@ -10,7 +13,10 @@ use Surface\Toolkits\UI\TKScrollView;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
 
 /**
- * A QScrollArea whose widget follows the viewport.
+ * A QScrollArea whose widget follows the viewport. Transparent, as a scroll view is on the other
+ * toolkits: the viewport fills no background, nor does the widget it holds (setWidget() turns
+ * that on), so what is behind shows through; a background set on the scroll view is its own
+ * style sheet's, painted behind them.
  */
 class QtScrollView extends TKScrollView
 {
@@ -20,15 +26,30 @@ class QtScrollView extends TKScrollView
     {
         $area = new QScrollArea();
         $area->setWidgetResizable(true);
+        $area->viewport()->setAutoFillBackground(false);
         $this->adoptNative($area);
-        // Its frame is a panel's; the others draw none.
-        $this->declare('border', 'none');
+        $self = WeakReference::create($this);
+        foreach ([$area->verticalScrollBar(), $area->horizontalScrollBar()] as $bar) {
+            QObject::connect($bar, 'valueChanged(int)', static function () use ($self): void {
+                $self->get()?->scrolled();
+            });
+        }
+        $this->restyleBox();
         $this->applyScrollbars($this->scrollsAcross(), $this->scrollsDown());
+    }
+
+    /**
+     * Its frame is a panel's; the others draw none. A border set takes its place.
+     */
+    protected function ownBorder(): ?string
+    {
+        return 'none';
     }
 
     protected function attachNative(TKPrimitive $child): void
     {
         $this->areaNative()->setWidget($child->native());
+        $child->native()->setAutoFillBackground(false);
         if ($child->isVisible()) {
             $child->native()->show();
         }
@@ -46,6 +67,18 @@ class QtScrollView extends TKScrollView
         $area = $this->areaNative();
         $area->setHorizontalScrollBarPolicy($horizontal ? ScrollBarPolicy::AS_NEEDED : ScrollBarPolicy::ALWAYS_OFF);
         $area->setVerticalScrollBarPolicy($vertical ? ScrollBarPolicy::AS_NEEDED : ScrollBarPolicy::ALWAYS_OFF);
+    }
+
+    /** Each bar's value, page and range: the range ends a page short of the content. */
+    protected function nativeScrollPosition(): ScrollPosition
+    {
+        $horizontal = $this->areaNative()->horizontalScrollBar();
+        $vertical = $this->areaNative()->verticalScrollBar();
+
+        return ScrollPosition::of(
+            $horizontal->value(), $horizontal->pageStep(), $horizontal->maximum() + $horizontal->pageStep(),
+            $vertical->value(), $vertical->pageStep(), $vertical->maximum() + $vertical->pageStep(),
+        );
     }
 
     protected function childLayoutChanged(TKPrimitive $child): void

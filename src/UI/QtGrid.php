@@ -6,6 +6,7 @@ use QWidget;
 use QGridLayout;
 use Surface\Toolkits\UI\TKGrid;
 use Surface\Toolkits\UI\TKPrimitive;
+use Surface\Contracts\Toolkits\UI\Insets;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
 use Jovian\Toolkits\Qt\UI\Concerns\PlacesInSlots;
 
@@ -30,7 +31,7 @@ class QtGrid extends TKGrid
         $widget = new QWidget();
         $this->cells_layout = new QGridLayout($widget);
         $this->cells_layout->setSpacing($this->spacing());
-        $this->cells_layout->setContentsMargins($this->padding, $this->padding, $this->padding, $this->padding);
+        $this->applyPadding($this->padding());
         $this->adoptNative($widget);
         $this->restretch();
     }
@@ -61,6 +62,12 @@ class QtGrid extends TKGrid
     protected function applySpacing(int $spacing): void
     {
         $this->cells_layout->setSpacing($spacing);
+    }
+
+    /** The layout's margins, each side its own. */
+    protected function applyPadding(Insets $padding): void
+    {
+        $this->cells_layout->setContentsMargins($padding->left, $padding->top, $padding->right, $padding->bottom);
     }
 
     /** An item's alignment is given when it is added: the child goes back into its own cell. */

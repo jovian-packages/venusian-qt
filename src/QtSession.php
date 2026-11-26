@@ -4,9 +4,12 @@ namespace Jovian\Toolkits\Qt;
 
 use QObject;
 use QWidget;
+use QGuiApplication;
 use QMessageBox;
 use Qt\WidgetAttribute;
+use Qt\ColorScheme as QtColorScheme;
 use Surface\Toolkits\ToolkitSession;
+use Surface\Contracts\Toolkits\Styling\ColorScheme;
 use Surface\Toolkits\Menus\AboutPanel;
 use Voyager\Contracts\Core\FrameworkCore;
 
@@ -59,5 +62,19 @@ class QtSession extends ToolkitSession
         $this->application = new Qt()
             ->setQApplicationNames($this->application_name, $this->desktop_file_name)
             ->setTimerBudget();
+    }
+
+    /**
+     * Qt's own application-wide scheme: forced for DARK and LIGHT, unset (the system's) for SYSTEM.
+     */
+    protected function applyColorScheme(ColorScheme $scheme): void
+    {
+        $hints = QGuiApplication::styleHints();
+
+        match ($scheme) {
+            ColorScheme::DARK => $hints->setColorScheme(QtColorScheme::DARK),
+            ColorScheme::LIGHT => $hints->setColorScheme(QtColorScheme::LIGHT),
+            ColorScheme::SYSTEM => $hints->unsetColorScheme(),
+        };
     }
 }

@@ -337,6 +337,12 @@ it('edits a text widget with Qt\'s own slots, and nothing else', function (): vo
     QtMenuBar::edit($line, StandardKind::PASTE);
     expect($line->text())->toBe('three');
 
+    // Plain text only, so the paste is the paste-and-match-style.
+    $line->selectAll();
+    expect(QtMenuBar::edit($line, StandardKind::PASTE_AND_MATCH_STYLE))->toBeTrue()->and($line->text())->toBe('three');
+    $area->selectAll();
+    expect(QtMenuBar::edit($area, StandardKind::PASTE_AND_MATCH_STYLE))->toBeTrue()->and($area->toPlainText())->toBe('three');
+
     expect(QtMenuBar::edit(new QPushButton('No text'), StandardKind::COPY))->toBeFalse()
         ->and(QtMenuBar::edit(null, StandardKind::COPY))->toBeFalse()
         ->and(QtMenuBar::edit($line, StandardKind::QUIT))->toBeFalse();

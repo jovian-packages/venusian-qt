@@ -6,6 +6,7 @@ use QProgressBar;
 use QSizePolicy\Policy;
 use Surface\Toolkits\UI\TKProgressBar;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
+use Jovian\Toolkits\Qt\UI\Concerns\QtSheetMargin;
 
 /**
  * A QProgressBar without its text. A range of nothing is Qt's "not known".
@@ -13,6 +14,7 @@ use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
 class QtProgressBar extends TKProgressBar
 {
     use QtNative;
+    use QtSheetMargin;
 
     private const int STEPS = 1000;
 

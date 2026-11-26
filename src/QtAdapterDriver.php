@@ -49,6 +49,8 @@ use Surface\Contracts\Toolkits\UI\TKSplitView;
 use Jovian\Toolkits\Qt\UI\QtSplitView;
 use Surface\Contracts\Toolkits\UI\TKGrid;
 use Jovian\Toolkits\Qt\UI\QtGrid;
+use Surface\Contracts\Toolkits\UI\TKOverlay;
+use Jovian\Toolkits\Qt\UI\QtOverlay;
 use Surface\Contracts\Toolkits\UI\TKSeparator;
 use Jovian\Toolkits\Qt\UI\QtSeparator;
 use Surface\Contracts\Toolkits\UI\TKProgressBar;
@@ -63,6 +65,8 @@ use Surface\Contracts\Toolkits\UI\TKSegmentedControl;
 use Jovian\Toolkits\Qt\UI\QtSegmentedControl;
 use Surface\Contracts\Toolkits\UI\TKImage;
 use Jovian\Toolkits\Qt\UI\QtImage;
+use Surface\Contracts\Toolkits\UI\TKWebView;
+use Jovian\Toolkits\Qt\UI\QtWebView;
 
 class QtAdapterDriver extends ToolkitAdapterDriver
 {
@@ -94,11 +98,13 @@ class QtAdapterDriver extends ToolkitAdapterDriver
         TKTabView::class => QtTabView::class,
         TKSplitView::class => QtSplitView::class,
         TKGrid::class => QtGrid::class,
+        TKOverlay::class => QtOverlay::class,
         TKTable::class => QtTable::class,
         TKListView::class => QtListView::class,
         TKCollectionView::class => QtCollectionView::class,
         TKTree::class => QtTree::class,
         TKTextArea::class => QtTextArea::class,
+        TKWebView::class => QtWebView::class,
     ];
 
     public function __construct(

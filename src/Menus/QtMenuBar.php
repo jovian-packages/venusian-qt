@@ -255,6 +255,8 @@ class QtMenuBar extends ToolkitMenuBar
             StandardKind::CUT => $focus->cut(),
             StandardKind::COPY => $focus->copy(),
             StandardKind::PASTE => $focus->paste(),
+            // These widgets hold plain text only: their paste is already paste and match style.
+            StandardKind::PASTE_AND_MATCH_STYLE => $focus->paste(),
             StandardKind::SELECT_ALL => $focus->selectAll(),
         };
 

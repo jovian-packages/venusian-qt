@@ -44,6 +44,14 @@ Two `QEventFilter`s, each holding the window weakly (a strong capture would be a
 * `closeNative()` = `QMainWindow::close()`: the close event takes the close path.
 * `releaseNative()` keeps the native's PHP wrapper in `$departed` until this object goes: the close path runs inside the window's own close event, and an ext-qt before 2026-11-12 deleted the `QMainWindow` when its last reference dropped there.
 
+# Alert
+
+`showAlert()`: a `QMessageBox` parented to the window, window-modal, `open()`ed; buttons added with `ActionRole` in order and kept (`$alert_buttons`), since the box gives back the clicked button and not its index; `setDefaultButton` and `setEscapeButton` from the alert. `&` in a label is doubled. The box's text format is `PLAIN_TEXT` (ext-qt 52cd709), so text shows as written in Qt's own box; Qt still decides native from the raw text (`QCocoaMessageDialog::show` refuses text `mightBeRichText`), so plain text keeps the `NSAlert` and text that looks like HTML gets Qt's own box, shown as written. The bridge-era `<qt>` wrapper is not ported: it made every box Qt's own. On macOS Qt 6.11 shows the box as an `NSAlert` sheet and, matching AppKit, gives Esc to no button when the default is also the escape button (qcocoamessagedialog.mm); elsewhere Esc clicks the escape button. Its check box takes the native box's state as the alert ends, before the click. `closeAlert()` closes the box. `tests/Integration/AlertTest.php`: 6 cases, the tick case skipped on macOS (the tick is in the native box).
+
+# Browse
+
+`openUrl()`: `QDesktopServices::openUrl(new QUrl($url))`.
+
 # Not ported yet
 
 From the [bridge-era window](/architecture/windows-and-menus.md): focus tracking (`quietly()` is a pass-through), window and button-role keys, right clicks, clipboard compare on activation.

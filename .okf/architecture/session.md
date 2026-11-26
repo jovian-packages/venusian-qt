@@ -5,7 +5,7 @@ description: QApplication built once, kept up with no windows, a budgeted dispat
 resource: src/Qt.php
 tags: [qt, session, linux, macos]
 status: draft
-generated: { by: claude-opus/5.5, at: 2026-11-21T17:39:27Z }
+generated: { by: claude-opus/5.5, at: 2026-11-26T05:30:00Z }
 sources:
   - id: qt
     resource: src/Qt.php
@@ -25,7 +25,7 @@ Three classes, on Topside's toolkit layer:
 | Class | Extends / implements | Job |
 |---|---|---|
 | `QtAdapterDriver` | `Surface\Toolkits\Drivers\ToolkitAdapterDriver` | refuses without ext-qt; makes the session from [config](/api/config.md); declares `QtWindow` as its window class |
-| `QtSession` | `Surface\Toolkits\ToolkitSession` | builds the `Qt` toolkit once, with the application and desktop file names and the budget timer |
+| `QtSession` | `Surface\Toolkits\ToolkitSession` | builds the `Qt` toolkit once, with the application and desktop file names and the budget timer; then `applyColorScheme()` calls `QStyleHints::setColorScheme()` (`Qt\ColorScheme` dark or light) or `unsetColorScheme()` for system (Qt 6.8; needs ext-qt d8a404d) |
 | `Qt` | `Surface\Contracts\Toolkits\Toolkit` | the Qt calls below |
 
 The window list and the after-pump settle are Topside's (`ToolkitSession`).[^session]

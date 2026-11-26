@@ -7,7 +7,7 @@ okf_version: "0.2"
 * [Session](architecture/session.md) - QApplication built once, kept up with no windows, a budgeted dispatcher pump with deferred deletes, and a one-shot notifier wake.
 * [Window](architecture/window.md) - QMainWindow with a central widget, wired to Topside's window lifecycle through event filters; resizes from the central widget.
 * [Menu bar](architecture/menu-bar.md) - One QMenuBar per window and a parentless one for none focused; how nodes become QActions and how Qt's macOS application menu is filled.
-* [UI primitives](architecture/ui-primitives.md) - The Qt column, row, fixed, label and button on Topside's TK classes, and the native widget each one is.
+* [UI primitives](architecture/ui-primitives.md) - The Qt primitives on Topside's TK classes, the native widget each one is, and which optional settings Qt shows natively.
 
 # API
 
