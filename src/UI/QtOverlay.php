@@ -4,12 +4,14 @@ namespace Jovian\Toolkits\Qt\UI;
 
 use QWidget;
 use QGridLayout;
+use QHBoxLayout;
 use QSpacerItem;
 use QSizePolicy\Policy;
 use Surface\Toolkits\UI\TKOverlay;
 use Surface\Toolkits\UI\TKPrimitive;
 use Surface\Contracts\Toolkits\UI\Insets;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
+use Jovian\Toolkits\Qt\UI\Concerns\QtHeldMargin;
 use Jovian\Toolkits\Qt\UI\Concerns\PlacesInSlots;
 
 /**
@@ -17,12 +19,18 @@ use Jovian\Toolkits\Qt\UI\Concerns\PlacesInSlots;
  * padding is the layout's margins. The first child is at the back: the widgets are raised in
  * the children's order. A child that fills both ways has Qt's IGNORED size policy, so it
  * takes the cell's size and gives the overlay none; the others give it the largest of theirs.
- * A child's margin is what the child keeps itself (QtSheetMargin), as in a column.
+ * A child with a margin is in the cell in a holder whose contents margins are that margin,
+ * the child in it with its alignment (QtHeldMargin); a kind that keeps its own margin
+ * (QtSheetMargin) is in the cell itself.
  */
 class QtOverlay extends TKOverlay
 {
     use QtNative;
     use PlacesInSlots;
+    use QtHeldMargin;
+
+    /** @var array<string, QHBoxLayout> the holder of each child with a margin, by its uuid */
+    private array $holders = [];
 
     private ?QGridLayout $stack = null;
 
@@ -61,7 +69,7 @@ class QtOverlay extends TKOverlay
      */
     protected function detachNative(TKPrimitive $child): void
     {
-        $this->stack->removeWidget($child->native());
+        $this->take($child);
         $this->tellExpansion();
     }
 
@@ -101,21 +109,56 @@ class QtOverlay extends TKOverlay
      */
     protected function childLayoutChanged(TKPrimitive $child): void
     {
-        $this->stack->removeWidget($child->native());
+        $this->take($child);
         $this->put($child);
         $this->sizeChild($child);
         $this->restack();
         $this->tellExpansion();
     }
 
+    /**
+     * A hidden child's margin takes no room.
+     */
     protected function childVisibilityChanged(TKPrimitive $child): void
     {
+        $holder = $this->holders[$child->uuid()] ?? null;
+        if (! is_null($holder)) {
+            self::holdMargin($holder, $child);
+        }
         $this->tellExpansion();
     }
 
+    /**
+     * Into the cell: itself, or in a holder of its margin that fills the cell.
+     */
     private function put(TKPrimitive $child): void
     {
-        $this->stack->addWidget($child->native(), 0, 0, 1, 1, self::alignmentOf($child));
+        if (self::heldMarginOf($child)->isZero()) {
+            $this->stack->addWidget($child->native(), 0, 0, 1, 1, self::alignmentOf($child));
+
+            return;
+        }
+
+        $holder = self::marginHolder($child, self::alignmentOf($child));
+        $this->stack->addLayout($holder, 0, 0, 1, 1, 0);
+        $this->holders[$child->uuid()] = $holder;
+    }
+
+    /**
+     * Out of the cell, and out of its holder when it has one (the holder goes with it).
+     */
+    private function take(TKPrimitive $child): void
+    {
+        $holder = $this->holders[$child->uuid()] ?? null;
+        if (is_null($holder)) {
+            $this->stack->removeWidget($child->native());
+
+            return;
+        }
+
+        $this->stack->removeItem($holder);
+        $holder->removeWidget($child->native());
+        unset($this->holders[$child->uuid()]);
     }
 
     /**

@@ -16,7 +16,7 @@ use Jovian\Toolkits\Qt\UI\Concerns\QtSheetMargin;
  * A rich text QLabel holding one anchor, which Qt opens from a click or the keyboard. Text
  * and URL are escaped, so neither is read as markup.
  */
-class QtLink extends TKLink
+class QtLink extends TKLink implements QtKeepsOwnMargin
 {
     use QtNative;
     use QtSheetMargin;

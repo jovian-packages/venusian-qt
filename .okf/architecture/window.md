@@ -48,6 +48,10 @@ Two `QEventFilter`s, each holding the window weakly (a strong capture would be a
 
 `showAlert()`: a `QMessageBox` parented to the window, window-modal, `open()`ed; buttons added with `ActionRole` in order and kept (`$alert_buttons`), since the box gives back the clicked button and not its index; `setDefaultButton` and `setEscapeButton` from the alert. `&` in a label is doubled. The box's text format is `PLAIN_TEXT` (ext-qt 52cd709), so text shows as written in Qt's own box; Qt still decides native from the raw text (`QCocoaMessageDialog::show` refuses text `mightBeRichText`), so plain text keeps the `NSAlert` and text that looks like HTML gets Qt's own box, shown as written. The bridge-era `<qt>` wrapper is not ported: it made every box Qt's own. On macOS Qt 6.11 shows the box as an `NSAlert` sheet and, matching AppKit, gives Esc to no button when the default is also the escape button (qcocoamessagedialog.mm); elsewhere Esc clicks the escape button. Its check box takes the native box's state as the alert ends, before the click. `closeAlert()` closes the box. `tests/Integration/AlertTest.php`: 6 cases, the tick case skipped on macOS (the tick is in the native box).
 
+# Save panel
+
+`showSave()`: a `QFileDialog` parented to the window with the request's title as caption and folder as directory, `ACCEPT_SAVE`, window-modal, `open()`ed; the suggested name is `selectFile()`. On macOS Qt shows the system's save sheet, elsewhere its own panel; either asks before replacing a file. `finished(int)` calls `saveAnswered()`: result 1 (accepted) with the first of `selectedFiles()`, any other result null; the panel is then `deleteLater()`ed. `closeSave()` closes the panel; its `finished()` then finds it is no longer the open one and posts nothing. `tests/Integration/SaveTest.php`: 4 cases on Qt's own panel under offscreen (title, modality, folder and name read back from `windowTitle()`, `windowModality()` and `selectedFiles()`; `accept()` and `reject()` answer; the window closing answers null). The system's sheet on macOS cannot be driven from a test.
+
 # Browse
 
 `openUrl()`: `QDesktopServices::openUrl(new QUrl($url))`.

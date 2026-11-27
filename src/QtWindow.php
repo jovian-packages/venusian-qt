@@ -6,6 +6,7 @@ use QEvent;
 use QEvent\Type as EventType;
 use QEventFilter;
 use QCheckBox;
+use QFileDialog;
 use QDesktopServices;
 use QUrl;
 use QMainWindow;
@@ -23,11 +24,15 @@ use Surface\Contracts\Toolkits\Mail\Windows\WindowScaleChanged;
 use Surface\Toolkits\ToolkitWindow;
 use Surface\Contracts\Toolkits\Dialogs\Alert;
 use Surface\Contracts\Toolkits\Dialogs\AlertStyle;
+use Surface\Contracts\Toolkits\Dialogs\SaveRequest;
 use Surface\Contracts\Toolkits\UI\TKColumn as ColumnContract;
 use WeakReference;
 
 class QtWindow extends ToolkitWindow
 {
+    /** QDialog::Accepted. */
+    private const int ACCEPTED = 1;
+
     /** The device pixel ratio last posted, or read at the first show. */
     private float $ratio = 1.0;
 
@@ -85,6 +90,8 @@ class QtWindow extends ToolkitWindow
      */
     protected array $alert_buttons = [];
 
+    /** The save panel open on the window, until it is answered. */
+    protected ?QFileDialog $save = null;
 
     public function __construct(
         string $name,
@@ -95,6 +102,15 @@ class QtWindow extends ToolkitWindow
         ?QtWindow $parent = null,
     ) {
         parent::__construct($name, $session, $driver, $width, $height, $parent);
+    }
+
+    /**
+     * The driver this window was opened by.
+     */
+    public function adapter(): QtAdapterDriver
+    {
+        /** @var QtAdapterDriver */
+        return $this->adapter;
     }
 
     public function present(): static
@@ -323,6 +339,35 @@ class QtWindow extends ToolkitWindow
         $box->open();
     }
 
+    /**
+     * A QFileDialog in save mode, modal to the window, opened without waiting: on macOS Qt
+     * shows the system's save sheet, elsewhere its own panel. The title, folder and suggested
+     * name are the panel's caption, directory and selected file. Accepting answers the chosen
+     * path, any other end of the panel null; the panel asks itself before replacing a file.
+     */
+    protected function showSave(SaveRequest $request): void
+    {
+        $dialog = new QFileDialog($this->live(), $request->title ?? '', $request->directory ?? '');
+        $dialog->setAcceptMode(QFileDialog\AcceptMode::ACCEPT_SAVE);
+        $dialog->setWindowModality(WindowModality::WINDOW_MODAL);
+        if (! is_null($request->name)) {
+            $dialog->selectFile($request->name);
+        }
+
+        $self = WeakReference::create($this);
+        QObject::connect($dialog, 'finished(int)', static function (int $result) use ($self, $dialog): void {
+            $window = $self->get();
+            if (is_null($window) || $window->save !== $dialog) {
+                return;
+            }
+            $window->save = null;
+            $dialog->deleteLater();
+            $window->saveAnswered($result === self::ACCEPTED ? ($dialog->selectedFiles()[0] ?? null) : null);
+        });
+        $this->save = $dialog;
+        $dialog->open();
+    }
+
     /** QDesktopServices opens it with the user's browser. */
     protected function openUrl(string $url): void
     {
@@ -336,6 +381,14 @@ class QtWindow extends ToolkitWindow
         $this->alert = null;
         $this->alert_buttons = [];
         $box?->close();
+    }
+
+    /** The panel goes with the window; its finished() then finds it gone. */
+    protected function closeSave(): void
+    {
+        $dialog = $this->save;
+        $this->save = null;
+        $dialog?->close();
     }
 
     /** A button label as written: Qt reads one & as a mnemonic marker, two as an &. */

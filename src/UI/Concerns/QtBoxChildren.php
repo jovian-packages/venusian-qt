@@ -27,11 +27,16 @@ use Surface\Contracts\Toolkits\UI\Insets;
  * and asks each item for its height at the width it gets, so the column reserves the right
  * height. Left: child, stretch; right: stretch, child; centred: stretch, child, stretch;
  * filling up to a maximum: the child (stretch 1) then a stretch that takes what is left.
+ *
+ * A child's margin is the contents margins of its row (QtHeldMargin): a child with a margin
+ * and no row of its own otherwise, in a column or a row, gets one holding it alone with its
+ * alignment.
  */
 trait QtBoxChildren
 {
     use QtNative;
     use PlacesInSlots;
+    use QtHeldMargin;
 
     private ?QBoxLayout $layout = null;
 
@@ -138,7 +143,7 @@ trait QtBoxChildren
 
     /**
      * A child that comes to need a row (or a different one), or no longer needs one, is put
-     * back in the same place the new way.
+     * back in the same place the new way. A row kept takes the child's margin as it is now.
      */
     protected function childLayoutChanged(TKPrimitive $child): void
     {
@@ -152,17 +157,23 @@ trait QtBoxChildren
             $this->layout->setStretch($this->layout->indexOf($native), $this->stretchOf($child));
             $this->layout->setAlignment($native, self::alignmentOf($child));
         } else {
+            $row = $this->rows[$child->uuid()]['row'];
             $this->layout->setStretch($this->slotOf($child), $this->stretchOf($child));
-            $this->rows[$child->uuid()]['row']->setAlignment($child->native(), self::verticalOf($child));
+            $row->setAlignment($child->native(), $held === 'margin' ? self::alignmentOf($child) : self::verticalOf($child));
+            self::holdMargin($row, $child);
         }
         $this->settleStretch();
     }
 
     /**
-     * A hidden child's fill counts for nothing.
+     * A hidden child's fill counts for nothing, nor its margin.
      */
     protected function childVisibilityChanged(TKPrimitive $child): void
     {
+        $row = $this->rows[$child->uuid()]['row'] ?? null;
+        if (! is_null($row)) {
+            self::holdMargin($row, $child);
+        }
         $this->settleStretch();
     }
 
@@ -180,7 +191,7 @@ trait QtBoxChildren
         }
 
         $row = new QHBoxLayout();
-        $row->setContentsMargins(0, 0, 0, 0);
+        self::holdMargin($row, $child);
         $row->setSpacing(0);
         $vertical = self::verticalOf($child);
         match ($shape) {
@@ -188,6 +199,7 @@ trait QtBoxChildren
             'end' => $this->fillRow($row, [1, [$native, 0, $vertical]]),
             'center' => $this->fillRow($row, [1, [$native, 0, $vertical], 1]),
             'fill' => $this->fillRow($row, [[$native, 1, $vertical], 0]),
+            'margin' => $this->fillRow($row, [[$native, 0, self::alignmentOf($child)]]),
         };
         $this->layout->insertLayout($index, $row, $this->stretchOf($child));
         $this->rows[$child->uuid()] = ['row' => $row, 'shape' => $shape];
@@ -247,24 +259,26 @@ trait QtBoxChildren
     }
 
     /**
-     * The row a column places the child in, or null for none: in a column, a child aligned
-     * across (start, center, end), or filling across up to a maximum width. A row (its axis
-     * across) asks each child at the width it gives, so needs none.
+     * The row the child is placed in, or null for none: in a column, a child aligned across
+     * (start, center, end), or filling across up to a maximum width; else, in a column or a
+     * row, a child with a margin this layout keeps ('margin': the child alone with its
+     * alignment). A row (its axis across) asks each child at the width it gives, so needs
+     * none for alignment.
      */
     private function shapeOf(TKPrimitive $child): ?string
     {
-        if (! $this->layout instanceof QVBoxLayout) {
-            return null;
+        $across = null;
+        if ($this->layout instanceof QVBoxLayout) {
+            [$horizontal] = $child->aligned();
+            $across = match ($horizontal) {
+                Align::START => 'start',
+                Align::CENTER => 'center',
+                Align::END => 'end',
+                Align::FILL => $child->maximumSize()[0] > 0 ? 'fill' : null,
+            };
         }
 
-        [$horizontal] = $child->aligned();
-
-        return match ($horizontal) {
-            Align::START => 'start',
-            Align::CENTER => 'center',
-            Align::END => 'end',
-            Align::FILL => $child->maximumSize()[0] > 0 ? 'fill' : null,
-        };
+        return $across ?? (self::heldMarginOf($child)->isZero() ? null : 'margin');
     }
 
     /**

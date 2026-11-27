@@ -9,6 +9,7 @@ use Surface\Toolkits\Drivers\ToolkitAdapterDriver;
 use Jovian\Toolkits\Qt\Menus\QtMenuBar;
 use Surface\Contracts\Toolkits\UI\TKRow;
 use Surface\Contracts\Toolkits\UI\TKFixed;
+use Surface\Contracts\Toolkits\UI\TKFlow;
 use Surface\Contracts\Toolkits\UI\TKLabel;
 use Surface\Contracts\Toolkits\UI\TKButton;
 use Surface\Contracts\Toolkits\UI\TKColumn;
@@ -25,6 +26,7 @@ use Jovian\Toolkits\Qt\UI\QtComboBox;
 use Jovian\Toolkits\Qt\UI\QtDatepicker;
 use Jovian\Toolkits\Qt\UI\QtRow;
 use Jovian\Toolkits\Qt\UI\QtFixed;
+use Jovian\Toolkits\Qt\UI\QtFlow;
 use Jovian\Toolkits\Qt\UI\QtLabel;
 use Jovian\Toolkits\Qt\UI\QtButton;
 use Jovian\Toolkits\Qt\UI\QtColumn;
@@ -66,7 +68,10 @@ use Jovian\Toolkits\Qt\UI\QtSegmentedControl;
 use Surface\Contracts\Toolkits\UI\TKImage;
 use Jovian\Toolkits\Qt\UI\QtImage;
 use Surface\Contracts\Toolkits\UI\TKWebView;
+use Surface\Contracts\Toolkits\UI\TKVideo;
 use Jovian\Toolkits\Qt\UI\QtWebView;
+use Jovian\Toolkits\Qt\UI\QtVideo;
+use Jovian\Toolkits\Qt\Video\QtVideoManager;
 
 class QtAdapterDriver extends ToolkitAdapterDriver
 {
@@ -78,6 +83,7 @@ class QtAdapterDriver extends ToolkitAdapterDriver
         TKColumn::class => QtColumn::class,
         TKRow::class => QtRow::class,
         TKFixed::class => QtFixed::class,
+        TKFlow::class => QtFlow::class,
         TKLabel::class => QtLabel::class,
         TKButton::class => QtButton::class,
         TKCheckbox::class => QtCheckbox::class,
@@ -105,7 +111,18 @@ class QtAdapterDriver extends ToolkitAdapterDriver
         TKTree::class => QtTree::class,
         TKTextArea::class => QtTextArea::class,
         TKWebView::class => QtWebView::class,
+        TKVideo::class => QtVideo::class,
     ];
+
+    private ?QtVideoManager $video = null;
+
+    /**
+     * The players this toolkit's videos are made with, made the first time a video asks.
+     */
+    public function video(): QtVideoManager
+    {
+        return $this->video ??= new QtVideoManager($this->app);
+    }
 
     public function __construct(
         FrameworkCore $app

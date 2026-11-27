@@ -13,6 +13,10 @@ okf_version: "0.2"
 
 * [Config](api/config.md) - config/qt.php keys read by the driver and the toolkit.
 
+# Design
+
+* [Video](design/video.md) - Approved and built 2026-11-27: TKVideo on Qt through a video manager with drivers in this package, 'qt' (QMediaPlayer) the default and 'webview' (QWebEngineView), three ext-qt bindings to add, what was measured, and the build stages.
+
 # Runbooks
 
 * [Testing](runbooks/testing.md) - Pest suite against the real toolkit in a workbench of path repos; Mac and Pi.

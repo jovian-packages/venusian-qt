@@ -22,7 +22,7 @@ use Jovian\Toolkits\Qt\UI\Concerns\QtSheetMargin;
  * A QLineEdit. textChanged(QString) is typing, returnPressed() a submit. A search field has
  * Qt's clear button and the theme's search glyph.
  */
-class QtTextInput extends TKTextInput
+class QtTextInput extends TKTextInput implements QtKeepsOwnMargin
 {
     use QtNative;
     use QtSheetMargin;

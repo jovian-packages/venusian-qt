@@ -4,20 +4,27 @@ namespace Jovian\Toolkits\Qt\UI;
 
 use QWidget;
 use QGridLayout;
+use QHBoxLayout;
 use Surface\Toolkits\UI\TKGrid;
 use Surface\Toolkits\UI\TKPrimitive;
 use Surface\Contracts\Toolkits\UI\Insets;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
+use Jovian\Toolkits\Qt\UI\Concerns\QtHeldMargin;
 use Jovian\Toolkits\Qt\UI\Concerns\PlacesInSlots;
 
 /**
  * A QWidget with a QGridLayout. An empty row and column past the children take the spare
- * room while nothing fills.
+ * room while nothing fills. A child with a margin is in its cell in a holder whose contents
+ * margins are that margin (QtHeldMargin).
  */
 class QtGrid extends TKGrid
 {
     use QtNative;
     use PlacesInSlots;
+    use QtHeldMargin;
+
+    /** @var array<string, QHBoxLayout> the holder of each child with a margin, by its uuid */
+    private array $holders = [];
 
     private ?QGridLayout $cells_layout = null;
 
@@ -44,14 +51,14 @@ class QtGrid extends TKGrid
 
     protected function detachNative(TKPrimitive $child): void
     {
-        $this->cells_layout->removeWidget($child->native());
+        $this->take($child);
         $this->restretch();
     }
 
     protected function applyCells(): void
     {
         foreach ($this->children() as $child) {
-            $this->cells_layout->removeWidget($child->native());
+            $this->take($child);
         }
         foreach ($this->children() as $child) {
             $this->put($child);
@@ -73,20 +80,55 @@ class QtGrid extends TKGrid
     /** An item's alignment is given when it is added: the child goes back into its own cell. */
     protected function childLayoutChanged(TKPrimitive $child): void
     {
-        $this->cells_layout->removeWidget($child->native());
+        $this->take($child);
         $this->put($child);
         $this->restretch();
     }
 
+    /**
+     * A hidden child's margin takes no room.
+     */
     protected function childVisibilityChanged(TKPrimitive $child): void
     {
+        $holder = $this->holders[$child->uuid()] ?? null;
+        if (! is_null($holder)) {
+            self::holdMargin($holder, $child);
+        }
         $this->restretch();
     }
 
+    /**
+     * Into its cell: itself, or in a holder of its margin that fills the cell.
+     */
     private function put(TKPrimitive $child): void
     {
         $cell = $this->cellOf($child);
-        $this->cells_layout->addWidget($child->native(), $cell->row, $cell->column, $cell->rowSpan, $cell->columnSpan, self::alignmentOf($child));
+        if (self::heldMarginOf($child)->isZero()) {
+            $this->cells_layout->addWidget($child->native(), $cell->row, $cell->column, $cell->rowSpan, $cell->columnSpan, self::alignmentOf($child));
+
+            return;
+        }
+
+        $holder = self::marginHolder($child, self::alignmentOf($child));
+        $this->cells_layout->addLayout($holder, $cell->row, $cell->column, $cell->rowSpan, $cell->columnSpan, 0);
+        $this->holders[$child->uuid()] = $holder;
+    }
+
+    /**
+     * Out of its cell, and out of its holder when it has one (the holder goes with it).
+     */
+    private function take(TKPrimitive $child): void
+    {
+        $holder = $this->holders[$child->uuid()] ?? null;
+        if (is_null($holder)) {
+            $this->cells_layout->removeWidget($child->native());
+
+            return;
+        }
+
+        $this->cells_layout->removeItem($holder);
+        $holder->removeWidget($child->native());
+        unset($this->holders[$child->uuid()]);
     }
 
     private function restretch(): void

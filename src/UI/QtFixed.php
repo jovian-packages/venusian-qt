@@ -9,15 +9,19 @@ use Surface\Toolkits\UI\TKPrimitive;
 use Surface\Contracts\Toolkits\UI\Placement;
 use Surface\Contracts\Toolkits\UI\TKPrimitive as ChildContract;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
+use Jovian\Toolkits\Qt\UI\Concerns\QtHeldMargin;
 
 /**
  * A QWidget with no layout: each child is a child widget at its frame's geometry (Qt keeps a
  * child at least its minimum size). Its own minimum size covers every frame, since children
- * outside a layout do not size their parent.
+ * outside a layout do not size their parent. A child's margin moves its frame in by the left
+ * and top margin, and the minimum size reaches past the right and bottom margin (QtHeldMargin:
+ * none for a kind that keeps its own).
  */
 class QtFixed extends TKFixed
 {
     use QtNative;
+    use QtHeldMargin;
 
     protected function bootstrapNative(): void
     {
@@ -29,10 +33,9 @@ class QtFixed extends TKFixed
      */
     protected function attachNative(TKPrimitive $child): void
     {
-        $frame = $child->placement();
         $native = $child->native();
         $native->setParent($this->native());
-        $native->setGeometry($frame->x, $frame->y, $frame->width, $frame->height);
+        $this->setFrame($child, $child->placement());
         if ($child->isVisible()) {
             $native->show();
         }
@@ -49,7 +52,16 @@ class QtFixed extends TKFixed
 
     protected function applyFrame(ChildContract $child, Placement $frame): void
     {
-        $child->native()->setGeometry($frame->x, $frame->y, $frame->width, $frame->height);
+        $this->setFrame($child, $frame);
+        $this->settleExtent();
+    }
+
+    /**
+     * The child's margin changed: its frame moves with it.
+     */
+    protected function childLayoutChanged(TKPrimitive $child): void
+    {
+        $this->setFrame($child, $this->frameOf($child));
         $this->settleExtent();
     }
 
@@ -76,10 +88,20 @@ class QtFixed extends TKFixed
         [$width, $height] = $this->minimumSize();
         foreach ($this->children() as $child) {
             $frame = $this->frameOf($child);
-            $width = max($width, $frame->x + $frame->width);
-            $height = max($height, $frame->y + $frame->height);
+            $margin = self::heldMarginOf($child);
+            $width = max($width, $frame->x + $margin->left + $frame->width + $margin->right);
+            $height = max($height, $frame->y + $margin->top + $frame->height + $margin->bottom);
         }
 
         $this->native()->setMinimumSize($width, $height);
+    }
+
+    /**
+     * The child's widget at $frame, moved in by its left and top margin.
+     */
+    private function setFrame(ChildContract $child, Placement $frame): void
+    {
+        $margin = $child instanceof TKPrimitive ? self::heldMarginOf($child) : null;
+        $child->native()->setGeometry($frame->x + ($margin?->left ?? 0), $frame->y + ($margin?->top ?? 0), $frame->width, $frame->height);
     }
 }
