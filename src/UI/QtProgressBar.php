@@ -11,7 +11,7 @@ use Jovian\Toolkits\Qt\UI\Concerns\QtSheetMargin;
 /**
  * A QProgressBar without its text. A range of nothing is Qt's "not known".
  */
-class QtProgressBar extends TKProgressBar
+class QtProgressBar extends TKProgressBar implements QtKeepsOwnMargin
 {
     use QtNative;
     use QtSheetMargin;

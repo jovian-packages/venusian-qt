@@ -13,6 +13,8 @@ Venusian Qt is the Qt 6 toolkit driver for Venusian Topside: it connects PHP to 
 
 Want a desktop app that looks right on KDE, Linux at large and macOS alike? Write your view once with Topside and Venusian Qt gives you the real thing: native buttons, text inputs and areas, tables, lists and trees, split and tab views, child windows and sheets, dialogs, the clipboard, and a menu bar whose Edit items, shortcuts and enabled states behave the way Qt users expect.
 
+Need video? A video view plays a file or an https URL through the player you pick in config: Qt Multimedia by default, or Qt WebEngine.
+
 Need more than widgets? A canvas shows your framebuffer with no pixel passing through PHP, and lends its surface to Venusian's rendering engines, so Metal, SDL, OpenGL and Vulkan draw straight into your window. Pointer, wheel and key mail come from the same windows.
 
 Linux and macOS. Venusian Qt runs wherever Qt 6 does, from a desktop to a Raspberry Pi. Prefer another toolkit? Reach for `jovian/venusian-gtk`, `jovian/venusian-appkit` or `jovian/venusian-raven` and keep the same views.

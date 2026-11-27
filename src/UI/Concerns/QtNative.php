@@ -43,7 +43,8 @@ use Surface\Contracts\Toolkits\UI\TKTransition;
  * parented to the widget so PHP never frees it; transitions are QPropertyAnimations Qt runs.
  * A move transition animates the position alone, with no effect.
  *
- * Clicks on a clickable group: an event filter on its widget that only watches.
+ * Clicks on a clickable group: an event filter on its widget that only watches. A view that
+ * reports its size has a second one, for the widget's Resize events.
  */
 trait QtNative
 {
@@ -57,6 +58,9 @@ trait QtNative
 
     /** A clickable group's click filter on its widget. */
     private ?QEventFilter $click_filter = null;
+
+    /** The filter that hears the widget's resizes while the view reports its size. */
+    private ?QEventFilter $size_filter = null;
 
     /** A left press reached the clickable group's widget, waiting for its release. */
     private bool $pressed = false;
@@ -113,6 +117,7 @@ trait QtNative
     protected function releaseNative(): void
     {
         $this->dropClickFilter();
+        $this->dropSizeFilter();
         $this->stopTransition();
         $this->native->setParent(null);
         $this->native->deleteLater();
@@ -177,6 +182,39 @@ trait QtNative
             $this->click_filter = null;
         }
         $this->pressed = false;
+    }
+
+    /**
+     * A QEventFilter on the widget for QEvent::RESIZE: each one calls sizeChanged(), which
+     * posts only a size that differs from the last one posted. The filter only watches, and
+     * sits beside the click filter; stopping, and the release, remove it.
+     */
+    protected function applyWatchSize(bool $on): void
+    {
+        if (! $on) {
+            $this->dropSizeFilter();
+
+            return;
+        }
+        if (is_null($this->size_filter)) {
+            $self = WeakReference::create($this);
+            $this->size_filter = new QEventFilter(static function (QObject $watched, QEvent $event) use ($self): bool {
+                if ($event->type() === EventType::RESIZE) {
+                    $self->get()?->sizeChanged();
+                }
+
+                return false;
+            });
+            $this->native->installEventFilter($this->size_filter);
+        }
+    }
+
+    private function dropSizeFilter(): void
+    {
+        if (! is_null($this->size_filter)) {
+            $this->native?->removeEventFilter($this->size_filter);
+            $this->size_filter = null;
+        }
     }
 
     protected function applyVisible(bool $visible, ?TKTransition $transition, float $seconds): void

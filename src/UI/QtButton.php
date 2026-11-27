@@ -4,7 +4,6 @@ namespace Jovian\Toolkits\Qt\UI;
 
 use QIcon;
 use QObject;
-use QPixmap;
 use QPushButton;
 use WeakReference;
 use QSizePolicy\Policy;
@@ -14,6 +13,7 @@ use Surface\Toolkits\UI\TKButton;
 use Surface\Contracts\Toolkits\UI\ButtonRole;
 use Surface\Contracts\Toolkits\UI\ButtonStyle;
 use Surface\Contracts\Toolkits\Styling\TextAlignment;
+use Jovian\Toolkits\Qt\UI\Support\QtIcon;
 use Jovian\Toolkits\Qt\UI\Concerns\QtText;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
 
@@ -104,15 +104,7 @@ class QtButton extends TKButton
      */
     protected function applyIcon(?string $file, ?string $symbol): void
     {
-        if (! is_null($file)) {
-            $pixmap = new QPixmap();
-            $pixmap->load($file);
-            $icon = new QIcon($pixmap);
-        } elseif (! is_null($symbol)) {
-            $icon = QIcon::fromTheme($symbol);
-        } else {
-            $icon = new QIcon(new QPixmap());
-        }
+        $icon = QtIcon::of($file, $symbol);
 
         $this->buttonNative()->setIcon($icon);
         $this->shown_icon = $icon->isNull() ? null : $icon;

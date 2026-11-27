@@ -3,7 +3,9 @@
 namespace Jovian\Toolkits\Qt\UI;
 
 use QObject;
+use QWidget;
 use QScrollArea;
+use QHBoxLayout;
 use WeakReference;
 use Surface\Contracts\Toolkits\Styling\ScrollPosition;
 use QSizePolicy\Policy;
@@ -11,16 +13,22 @@ use Qt\ScrollBarPolicy;
 use Surface\Toolkits\UI\TKPrimitive;
 use Surface\Toolkits\UI\TKScrollView;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
+use Jovian\Toolkits\Qt\UI\Concerns\QtHeldMargin;
 
 /**
  * A QScrollArea whose widget follows the viewport. Transparent, as a scroll view is on the other
  * toolkits: the viewport fills no background, nor does the widget it holds (setWidget() turns
  * that on), so what is behind shows through; a background set on the scroll view is its own
- * style sheet's, painted behind them.
+ * style sheet's, painted behind them. The area's widget is a holder with the content in it, in
+ * from the content's margin (QtHeldMargin).
  */
 class QtScrollView extends TKScrollView
 {
     use QtNative;
+    use QtHeldMargin;
+
+    /** The content's holder widget and its layout; null before the content comes. */
+    private ?QHBoxLayout $holder = null;
 
     protected function bootstrapNative(): void
     {
@@ -46,9 +54,15 @@ class QtScrollView extends TKScrollView
         return 'none';
     }
 
+    /**
+     * The content in a new holder, which becomes the area's widget (the area deletes the one
+     * before).
+     */
     protected function attachNative(TKPrimitive $child): void
     {
-        $this->areaNative()->setWidget($child->native());
+        [$widget, $this->holder] = self::marginWidget($child);
+        $this->areaNative()->setWidget($widget);
+        $widget->setAutoFillBackground(false);
         $child->native()->setAutoFillBackground(false);
         if ($child->isVisible()) {
             $child->native()->show();
@@ -81,13 +95,22 @@ class QtScrollView extends TKScrollView
         );
     }
 
+    /**
+     * The holder keeps the content's margin as it is now.
+     */
     protected function childLayoutChanged(TKPrimitive $child): void
     {
+        if (! is_null($this->holder)) {
+            self::holdMargin($this->holder, $child);
+        }
         $this->tellExpansion();
     }
 
     protected function childVisibilityChanged(TKPrimitive $child): void
     {
+        if (! is_null($this->holder)) {
+            self::holdMargin($this->holder, $child);
+        }
         $this->tellExpansion();
     }
 

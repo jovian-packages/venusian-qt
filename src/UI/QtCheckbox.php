@@ -14,7 +14,7 @@ use Jovian\Toolkits\Qt\UI\Concerns\QtSheetMargin;
  * A QCheckBox. Its toggled(bool) signal tells topside the new state; Qt also emits it for
  * setChecked() from code, which topside recognises as the state it already holds.
  */
-class QtCheckbox extends TKCheckbox
+class QtCheckbox extends TKCheckbox implements QtKeepsOwnMargin
 {
     use QtNative;
     use QtSheetMargin;

@@ -36,6 +36,12 @@ it('draws in the colour scheme it is given: forced for dark and light, the syste
     $system = $hints->colorScheme();
 
     $apply->invoke(session(), ColorScheme::DARK);
+    // A platform with no colour scheme (offscreen) reports UNKNOWN whatever is asked, as Qt
+    // documents setColorScheme(): there is nothing to check.
+    if ($system === \Qt\ColorScheme::UNKNOWN && $hints->colorScheme() === \Qt\ColorScheme::UNKNOWN) {
+        $apply->invoke(session(), ColorScheme::SYSTEM);
+        test()->markTestSkipped("The '".QGuiApplication::platformName()."' platform has no colour scheme.");
+    }
     expect($hints->colorScheme())->toBe(\Qt\ColorScheme::DARK);
 
     $apply->invoke(session(), ColorScheme::LIGHT);

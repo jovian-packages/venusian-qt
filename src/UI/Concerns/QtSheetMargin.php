@@ -10,8 +10,8 @@ use Surface\Contracts\Toolkits\UI\Insets;
  * style sheet style paints the background inside the margin and adds the margin to the size
  * hint, so the layout leaves the space round the widget. Used only where that holds and the
  * widget keeps its own look under the sheet (label, link, check box, text input, progress bar;
- * see ui-primitives.md). Qt layouts keep no space round a child of their own, so the others
- * leave margin unshown.
+ * see ui-primitives.md); each of them is a QtKeepsOwnMargin. The others' margin is their
+ * parent's to keep (QtHeldMargin).
  */
 trait QtSheetMargin
 {

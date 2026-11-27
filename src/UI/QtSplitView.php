@@ -4,7 +4,9 @@ namespace Jovian\Toolkits\Qt\UI;
 
 use QEvent;
 use QObject;
+use QWidget;
 use QSplitter;
+use QHBoxLayout;
 use QEventFilter;
 use WeakReference;
 use Qt\Orientation;
@@ -12,14 +14,20 @@ use QEvent\Type as EventType;
 use Surface\Toolkits\UI\TKPrimitive;
 use Surface\Toolkits\UI\TKSplitView;
 use Jovian\Toolkits\Qt\UI\Concerns\QtNative;
+use Jovian\Toolkits\Qt\UI\Concerns\QtHeldMargin;
 
 /**
  * A QSplitter. splitterMoved() comes from the user's drag alone; a resize puts the divider
- * back at its fraction.
+ * back at its fraction. Each pane is a holder widget with the child in it, in from the
+ * child's margin (QtHeldMargin), shown while the child is.
  */
 class QtSplitView extends TKSplitView
 {
     use QtNative;
+    use QtHeldMargin;
+
+    /** @var array<string, array{QWidget, QHBoxLayout}> each child's pane and its layout, by uuid */
+    private array $panes = [];
 
     private ?QEventFilter $resizes = null;
 
@@ -46,22 +54,31 @@ class QtSplitView extends TKSplitView
 
     protected function attachNative(TKPrimitive $child): void
     {
-        $this->splitNative()->addWidget($child->native());
+        $this->panes[$child->uuid()] = self::marginWidget($child);
+        $pane = $this->paneOf($child);
+        $this->splitNative()->addWidget($pane);
         if ($child->isVisible()) {
             $child->native()->show();
+            $pane->show();
+        } else {
+            $pane->hide();
         }
         $this->tellExpansion();
     }
 
-    /** The child's own release takes it off the splitter. */
+    /**
+     * The pane goes; the child's own release takes it out of the pane first.
+     */
     protected function detachNative(TKPrimitive $child): void
     {
+        $this->paneOf($child)->deleteLater();
+        unset($this->panes[$child->uuid()]);
         $this->tellExpansion();
     }
 
     protected function reorderNative(TKPrimitive $child, int $index): void
     {
-        $this->splitNative()->insertWidget($index, $child->native());
+        $this->splitNative()->insertWidget($index, $this->paneOf($child));
     }
 
     protected function applyPosition(float $position): void
@@ -75,9 +92,28 @@ class QtSplitView extends TKSplitView
         $split->setSizes([$first, $room - $first]);
     }
 
+    /**
+     * The pane keeps the child's margin as it is now.
+     */
     protected function childLayoutChanged(TKPrimitive $child): void
     {
+        self::holdMargin($this->panes[$child->uuid()][1], $child);
         $this->tellExpansion();
+    }
+
+    /**
+     * A hidden child's pane is hidden with it: the splitter gives it no room.
+     */
+    protected function childVisibilityChanged(TKPrimitive $child): void
+    {
+        self::holdMargin($this->panes[$child->uuid()][1], $child);
+        $this->paneOf($child)->setVisible($child->isVisible());
+        $this->tellExpansion();
+    }
+
+    private function paneOf(TKPrimitive $child): QWidget
+    {
+        return $this->panes[$child->uuid()][0];
     }
 
     private function resized(): void
